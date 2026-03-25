@@ -1,0 +1,55 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:google_generative_ai/google_generative_ai.dart';
+import '../../../shared/models/meal_model.dart';
+
+class VisionService {
+  VisionService._();
+  static final instance = VisionService._();
+
+  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+
+  GenerativeModel? _model;
+
+  GenerativeModel get model {
+    _model ??= GenerativeModel(
+      model: 'gemini-1.5-flash',
+      apiKey: _apiKey,
+    );
+    return _model!;
+  }
+
+  /// Analyze food image and return MealModel
+  Future<MealModel> analyzeFood(File imageFile) async {
+    if (_apiKey.isEmpty) {
+      throw Exception(
+          'API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY');
+    }
+
+    final imageBytes = await imageFile.readAsBytes();
+
+    final prompt = Content.multi([
+      TextPart(
+        'Bu yemeği tanımla. Şu JSON formatında yanıt ver: '
+        '{"foodName": "string", "calories": int, "protein": double, '
+        '"carbs": double, "fat": double, "advice": "string"}. '
+        'Sadece JSON döndür, başka bir şey yazma. '
+        'Tavsiyeyi Türkçe yaz.',
+      ),
+      DataPart('image/jpeg', imageBytes),
+    ]);
+
+    final response = await model.generateContent([prompt]);
+    final text = response.text ?? '';
+
+    // Extract JSON from response (handle markdown code blocks)
+    String jsonStr = text.trim();
+    if (jsonStr.startsWith('```')) {
+      jsonStr = jsonStr.replaceAll(RegExp(r'^```\w*\n?'), '');
+      jsonStr = jsonStr.replaceAll(RegExp(r'\n?```$'), '');
+    }
+
+    final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+    return MealModel.fromJson(json);
+  }
+}
