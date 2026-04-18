@@ -39,19 +39,35 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     // Ensure today's log and update streak on screen open
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initializeDay();
+      if (mounted) _initializeDay();
     });
   }
 
   Future<void> _initializeDay() async {
-    final authUser = ref.read(authStateProvider).valueOrNull;
-    if (authUser == null) return;
-    await FirestoreService.instance.ensureTodayLog(authUser.uid);
-    await FirestoreService.instance.updateStreak(authUser.uid);
-    // Start real-time step counting
-    final granted = await HealthService.instance.requestPermissions();
-    if (granted) {
-      HealthService.instance.startListening();
+    if (!mounted) return;
+    try {
+      final authUser = ref.read(authStateProvider).valueOrNull;
+      if (authUser == null) return;
+
+      // Ensure user document exists in Firestore
+      await FirestoreService.instance.ensureUserDoc(
+        uid: authUser.uid,
+        displayName: authUser.displayName ?? '',
+        email: authUser.email ?? '',
+      );
+      if (!mounted) return;
+
+      await FirestoreService.instance.ensureTodayLog(authUser.uid);
+      if (!mounted) return;
+      await FirestoreService.instance.updateStreak(authUser.uid);
+      if (!mounted) return;
+      // Start real-time step counting
+      final granted = await HealthService.instance.requestPermissions();
+      if (granted && mounted) {
+        HealthService.instance.startListening();
+      }
+    } catch (e) {
+      debugPrint('HomeScreen _initializeDay error: $e');
     }
   }
 
@@ -77,11 +93,37 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         child: userAsync.when(
           loading: () => _buildShimmer(),
           error: (e, _) => Center(
-            child: Text('Hata: $e',
-                style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.cloud_off, color: AppTheme.textSecondary, size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Sunucuya bağlanılamadı',
+                    style: GoogleFonts.poppins(
+                      color: AppTheme.textWhite,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Firebase Firestore veritabanının oluşturulduğundan emin olun.',
+                    style: GoogleFonts.poppins(color: AppTheme.textSecondary, fontSize: 13),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ),
           data: (user) {
-            if (user == null) return const SizedBox.shrink();
+            if (user == null) {
+              return const Center(
+                child: CircularProgressIndicator(),
+              );
+            }
 
             final log = logAsync.valueOrNull;
             final score = dailyScore;

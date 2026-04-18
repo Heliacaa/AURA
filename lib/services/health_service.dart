@@ -16,6 +16,7 @@ class HealthService {
   Stream<int> get stepStream => _stepController.stream;
 
   Future<bool> requestPermissions() async {
+    if (kIsWeb) return false;
     final status = await Permission.activityRecognition.request();
     return status.isGranted;
   }

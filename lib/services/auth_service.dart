@@ -4,7 +4,9 @@ import 'firestore_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  GoogleSignIn? _googleSignIn;
+
+  GoogleSignIn get _google => _googleSignIn ??= GoogleSignIn();
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
   User? get currentUser => _auth.currentUser;
@@ -47,7 +49,7 @@ class AuthService {
 
   /// Google Sign-In
   Future<UserCredential> signInWithGoogle() async {
-    final googleUser = await _googleSignIn.signIn();
+    final googleUser = await _google.signIn();
     if (googleUser == null) {
       throw FirebaseAuthException(
         code: 'google-sign-in-cancelled',
@@ -77,7 +79,11 @@ class AuthService {
 
   /// Sign out
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    try {
+      await _google.signOut();
+    } catch (_) {
+      // Google Sign-In may not be initialized on web
+    }
     await _auth.signOut();
   }
 }

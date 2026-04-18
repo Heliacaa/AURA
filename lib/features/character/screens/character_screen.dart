@@ -23,11 +23,37 @@ class CharacterScreen extends ConsumerWidget {
           child: CircularProgressIndicator(color: AppTheme.primaryAccent),
         ),
         error: (e, _) => Center(
-          child: Text('Hata: $e',
-              style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off, color: AppTheme.textSecondary, size: 48),
+                const SizedBox(height: 16),
+                Text(
+                  'Sunucuya bağlanılamadı',
+                  style: GoogleFonts.poppins(
+                    color: AppTheme.textWhite,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Firebase Firestore veritabanının oluşturulduğundan emin olun.',
+                  style: GoogleFonts.poppins(color: AppTheme.textSecondary, fontSize: 13),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
         ),
         data: (user) {
-          if (user == null) return const SizedBox.shrink();
+          if (user == null) {
+            return const Center(
+              child: CircularProgressIndicator(color: AppTheme.primaryAccent),
+            );
+          }
 
           return SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),

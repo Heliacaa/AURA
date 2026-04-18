@@ -50,6 +50,18 @@ class FirestoreService {
     await _userDoc(uid).set(user.toFirestore());
   }
 
+  /// Ensure user document exists — create if missing
+  Future<void> ensureUserDoc({
+    required String uid,
+    required String displayName,
+    required String email,
+  }) async {
+    final doc = await _userDoc(uid).get();
+    if (!doc.exists) {
+      await createUserDoc(uid: uid, displayName: displayName, email: email);
+    }
+  }
+
   /// Stream user data
   Stream<UserModel?> userStream(String uid) {
     return _userDoc(uid).snapshots().map((doc) {
