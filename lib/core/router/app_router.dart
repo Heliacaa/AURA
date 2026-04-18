@@ -8,6 +8,7 @@ import '../../features/home/screens/home_screen.dart';
 import '../../features/chat/screens/chat_screen.dart';
 import '../../features/scan/screens/scan_screen.dart';
 import '../../features/character/screens/character_screen.dart';
+import '../../features/social/screens/social_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
 import '../../shared/widgets/bottom_nav_shell.dart';
 
@@ -82,6 +83,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: '/character',
                 builder: (context, state) => const CharacterScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/social',
+                builder: (context, state) => const SocialScreen(),
               ),
             ],
           ),

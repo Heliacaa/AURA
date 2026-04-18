@@ -48,6 +48,10 @@ class BottomNavShell extends StatelessWidget {
             icon: Icon(Icons.shield_rounded),
             label: 'Karakter',
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people_rounded),
+            label: 'Sosyal',
+          ),
         ],
       ),
     );

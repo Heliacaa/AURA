@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../../shared/models/daily_log_model.dart';
+import '../../../shared/models/meal_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../services/firestore_service.dart';
+import '../../../services/health_service.dart';
 
 /// Today's daily log stream
 final todayLogProvider = StreamProvider<DailyLogModel?>((ref) {
@@ -28,4 +30,25 @@ final dailyScoreProvider = Provider<int>((ref) {
   final streakBonus = user.streakDays > 0 ? 20 : 0;
 
   return (stepsScore + mealsScore + waterScore + streakBonus).clamp(0, 100);
+});
+
+/// Real-time step count from pedometer
+final stepStreamProvider = StreamProvider<int>((ref) {
+  return HealthService.instance.stepStream;
+});
+
+/// Weekly logs for chart (last 7 days)
+final weeklyLogsProvider = FutureProvider<List<DailyLogModel>>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.valueOrNull;
+  if (user == null) return [];
+  return FirestoreService.instance.getWeeklyLogs(user.uid);
+});
+
+/// Today's meals stream for macro tracking
+final todayMealsProvider = StreamProvider<List<MealModel>>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.valueOrNull;
+  if (user == null) return const Stream.empty();
+  return FirestoreService.instance.todayMealsStream(user.uid);
 });

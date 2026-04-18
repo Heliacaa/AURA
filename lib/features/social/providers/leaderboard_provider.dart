@@ -1,0 +1,64 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../auth/providers/auth_provider.dart';
+import '../../../services/firestore_service.dart';
+import 'friends_provider.dart';
+
+/// Leaderboard sort mode
+enum LeaderboardSort { weeklyXp, streak, score }
+
+final leaderboardSortProvider =
+    StateProvider<LeaderboardSort>((ref) => LeaderboardSort.weeklyXp);
+
+/// Leaderboard data: list of friend stats
+final leaderboardProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final friends = ref.watch(friendsProvider).valueOrNull ?? [];
+  final currentUser = ref.watch(currentUserProvider).valueOrNull;
+  final sort = ref.watch(leaderboardSortProvider);
+
+  final List<Map<String, dynamic>> entries = [];
+
+  // Add current user
+  if (currentUser != null) {
+    entries.add({
+      'uid': currentUser.uid,
+      'displayName': currentUser.displayName,
+      'currentLevel': currentUser.currentLevel,
+      'xp': currentUser.xp,
+      'streakDays': currentUser.streakDays,
+      'currentClass': currentUser.currentClass,
+      'isMe': true,
+    });
+  }
+
+  // Add friends
+  for (final friend in friends) {
+    final stats =
+        await FirestoreService.instance.getUserPublicStats(friend.friendUid);
+    if (stats != null) {
+      entries.add({
+        ...stats,
+        'uid': friend.friendUid,
+        'isMe': false,
+      });
+    }
+  }
+
+  // Sort based on selected mode
+  switch (sort) {
+    case LeaderboardSort.weeklyXp:
+      entries.sort((a, b) =>
+          ((b['xp'] as num?) ?? 0).compareTo((a['xp'] as num?) ?? 0));
+      break;
+    case LeaderboardSort.streak:
+      entries.sort((a, b) => ((b['streakDays'] as num?) ?? 0)
+          .compareTo((a['streakDays'] as num?) ?? 0));
+      break;
+    case LeaderboardSort.score:
+      entries.sort((a, b) => ((b['currentLevel'] as num?) ?? 0)
+          .compareTo((a['currentLevel'] as num?) ?? 0));
+      break;
+  }
+
+  return entries;
+});

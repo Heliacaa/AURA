@@ -12,6 +12,8 @@ class DailyLogModel {
   final int dailyScore;
   final int xpEarned;
   final int mealsLogged;
+  final double sleepHours;
+  final String sleepQuality; // good, fair, poor
 
   const DailyLogModel({
     required this.date,
@@ -25,6 +27,8 @@ class DailyLogModel {
     this.dailyScore = 0,
     this.xpEarned = 0,
     this.mealsLogged = 0,
+    this.sleepHours = 0,
+    this.sleepQuality = '',
   });
 
   factory DailyLogModel.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +48,8 @@ class DailyLogModel {
       dailyScore: (data['dailyScore'] as num?)?.toInt() ?? 0,
       xpEarned: (data['xpEarned'] as num?)?.toInt() ?? 0,
       mealsLogged: (data['mealsLogged'] as num?)?.toInt() ?? 0,
+      sleepHours: (data['sleepHours'] as num?)?.toDouble() ?? 0,
+      sleepQuality: data['sleepQuality'] as String? ?? '',
     );
   }
 
@@ -58,6 +64,8 @@ class DailyLogModel {
         'dailyScore': dailyScore,
         'xpEarned': xpEarned,
         'mealsLogged': mealsLogged,
+        'sleepHours': sleepHours,
+        'sleepQuality': sleepQuality,
       };
 
   DailyLogModel copyWith({
@@ -70,6 +78,8 @@ class DailyLogModel {
     int? dailyScore,
     int? xpEarned,
     int? mealsLogged,
+    double? sleepHours,
+    String? sleepQuality,
   }) {
     return DailyLogModel(
       date: date,
@@ -83,6 +93,8 @@ class DailyLogModel {
       dailyScore: dailyScore ?? this.dailyScore,
       xpEarned: xpEarned ?? this.xpEarned,
       mealsLogged: mealsLogged ?? this.mealsLogged,
+      sleepHours: sleepHours ?? this.sleepHours,
+      sleepQuality: sleepQuality ?? this.sleepQuality,
     );
   }
 

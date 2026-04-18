@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/aura_card.dart';
 import '../../auth/providers/auth_provider.dart';
+import '../../home/providers/home_provider.dart';
 import '../providers/scan_provider.dart';
 import '../services/vision_service.dart';
 import '../../../services/firestore_service.dart';
@@ -56,7 +57,28 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     _scanLineController.repeat();
 
     try {
-      final result = await VisionService.instance.analyzeFood(file);
+      // Get today's meals for goal-aware analysis
+      final user = ref.read(currentUserProvider).valueOrNull;
+      final todayMeals = ref.read(todayMealsProvider).valueOrNull ?? [];
+      int caloriesConsumed = 0;
+      double proteinConsumed = 0;
+      double carbsConsumed = 0;
+      double fatConsumed = 0;
+      for (final m in todayMeals) {
+        caloriesConsumed += m.calories;
+        proteinConsumed += m.protein;
+        carbsConsumed += m.carbs;
+        fatConsumed += m.fat;
+      }
+
+      final result = await VisionService.instance.analyzeFood(
+        file,
+        calorieGoal: user?.dailyGoals.calories ?? 2000,
+        caloriesConsumed: caloriesConsumed,
+        proteinConsumed: proteinConsumed,
+        carbsConsumed: carbsConsumed,
+        fatConsumed: fatConsumed,
+      );
       ref.read(scanResultProvider.notifier).state = result;
     } catch (e) {
       if (mounted) {
@@ -320,6 +342,27 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 title: 'Kalori: ${result.calories} kcal',
                 borderColor: AppTheme.secondaryAccent,
               ),
+              // Remaining budget indicator
+              Builder(builder: (context) {
+                final user = ref.watch(currentUserProvider).valueOrNull;
+                final todayMeals =
+                    ref.watch(todayMealsProvider).valueOrNull ?? [];
+                int consumed = 0;
+                for (final m in todayMeals) {
+                  consumed += m.calories;
+                }
+                final goal = user?.dailyGoals.calories ?? 2000;
+                final remaining = goal - consumed - result.calories;
+                final isOver = remaining < 0;
+                return AuraCard(
+                  emoji: isOver ? '⚠️' : '📊',
+                  title: isOver
+                      ? 'Bütçeyi ${-remaining} kcal aştın!'
+                      : 'Kalan: $remaining kcal',
+                  borderColor:
+                      isOver ? AppTheme.statRed : AppTheme.secondaryAccent,
+                );
+              }),
               AuraCard(
                 emoji: '📊',
                 title:

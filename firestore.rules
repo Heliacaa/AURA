@@ -29,6 +29,21 @@ service cloud.firestore {
         allow create: if request.auth != null && request.auth.uid == userId;
         allow update, delete: if false;
       }
+
+      // Friends subcollection
+      match /friends/{friendId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Memories subcollection (RAG)
+      match /memories/{memoryId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Allow authenticated users to find other users by email
+    match /users/{userId} {
+      allow read: if request.auth != null;
     }
 
     // Deny all other access

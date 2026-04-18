@@ -4,6 +4,7 @@ import '../shared/models/daily_log_model.dart';
 import '../shared/models/meal_model.dart';
 import '../shared/models/chat_message_model.dart';
 import '../shared/models/achievement_model.dart';
+import '../shared/models/friendship_model.dart';
 import '../core/utils/date_utils.dart';
 
 class FirestoreService {
@@ -27,6 +28,9 @@ class FirestoreService {
 
   CollectionReference _achievements(String uid) =>
       _userDoc(uid).collection('achievements');
+
+  CollectionReference _friends(String uid) =>
+      _userDoc(uid).collection('friends');
 
   // ─── User ─────────────────────────────────────────────────
 
@@ -278,5 +282,131 @@ class FirestoreService {
   Future<void> unlockAchievement(
       String uid, AchievementModel achievement) async {
     await _achievements(uid).doc(achievement.id).set(achievement.toFirestore());
+  }
+
+  // ─── Friends ──────────────────────────────────────────────
+
+  /// Send friend request
+  Future<void> sendFriendRequest({
+    required String fromUid,
+    required String fromName,
+    required String fromEmail,
+    required String toUid,
+    required String toName,
+    required String toEmail,
+  }) async {
+    final now = DateTime.now();
+    // Add to sender's friends list
+    await _friends(fromUid).doc(toUid).set(FriendshipModel(
+      friendUid: toUid,
+      friendName: toName,
+      friendEmail: toEmail,
+      status: 'pending',
+      createdAt: now,
+    ).toFirestore());
+    // Add to receiver's friends list
+    await _friends(toUid).doc(fromUid).set(FriendshipModel(
+      friendUid: fromUid,
+      friendName: fromName,
+      friendEmail: fromEmail,
+      status: 'pending',
+      createdAt: now,
+    ).toFirestore());
+  }
+
+  /// Accept friend request
+  Future<void> acceptFriendRequest(String uid, String friendUid) async {
+    await _friends(uid).doc(friendUid).update({'status': 'accepted'});
+    await _friends(friendUid).doc(uid).update({'status': 'accepted'});
+  }
+
+  /// Decline / remove friend
+  Future<void> removeFriend(String uid, String friendUid) async {
+    await _friends(uid).doc(friendUid).delete();
+    await _friends(friendUid).doc(uid).delete();
+  }
+
+  /// Stream accepted friends
+  Stream<List<FriendshipModel>> friendsStream(String uid) {
+    return _friends(uid)
+        .where('status', isEqualTo: 'accepted')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList());
+  }
+
+  /// Stream pending friend requests (received)
+  Stream<List<FriendshipModel>> friendRequestsStream(String uid) {
+    return _friends(uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList());
+  }
+
+  /// Search user by email
+  Future<UserModel?> findUserByEmail(String email) async {
+    final snap = await _db
+        .collection('users')
+        .where('email', isEqualTo: email)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return UserModel.fromFirestore(snap.docs.first);
+  }
+
+  /// Get a user's public stats for leaderboard
+  Future<Map<String, dynamic>?> getUserPublicStats(String uid) async {
+    final doc = await _userDoc(uid).get();
+    if (!doc.exists) return null;
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return {
+      'displayName': data['displayName'] ?? '',
+      'currentLevel': data['currentLevel'] ?? 1,
+      'xp': data['xp'] ?? 0,
+      'streakDays': data['streakDays'] ?? 0,
+      'currentClass': data['currentClass'] ?? 'Novice',
+    };
+  }
+
+  // ─── Sleep ────────────────────────────────────────────────
+
+  /// Update sleep data in today's log
+  Future<void> updateSleepData(
+      String uid, String dateKey, double hours, String quality) async {
+    await _dailyLogs(uid).doc(dateKey).update({
+      'sleepHours': hours,
+      'sleepQuality': quality,
+    });
+  }
+
+  // ─── Weekly Logs ──────────────────────────────────────────
+
+  /// Get last 7 days of daily logs for charts
+  Future<List<DailyLogModel>> getWeeklyLogs(String uid) async {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final startKey = AppDateUtils.formatDate(weekAgo);
+
+    final snap = await _dailyLogs(uid)
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: startKey)
+        .orderBy(FieldPath.documentId)
+        .get();
+    return snap.docs.map((d) => DailyLogModel.fromFirestore(d)).toList();
+  }
+
+  // ─── Today's Meals for Macro Tracking ─────────────────────
+
+  /// Stream meals for today only
+  Stream<List<MealModel>> todayMealsStream(String uid) {
+    final todayStart = DateTime(
+        DateTime.now().year, DateTime.now().month, DateTime.now().day);
+    return _meals(uid)
+        .where('timestamp',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .orderBy('timestamp', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => MealModel.fromFirestore(d)).toList());
   }
 }

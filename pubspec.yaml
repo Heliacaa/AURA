@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   # UI
   cupertino_icons: ^1.0.8
@@ -17,6 +19,7 @@ dependencies:
   fl_chart: ^0.69.2
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
+  confetti: ^0.7.0
 
   # Firebase
   firebase_core: ^3.8.1
@@ -35,6 +38,11 @@ dependencies:
   image_picker: ^1.1.2
   camera: ^0.11.1
 
+  # Health & Sensors
+  pedometer: ^4.0.2
+  health: ^13.3.1
+  permission_handler: ^11.3.1
+
   # Navigation
   go_router: ^14.8.1
 
@@ -44,7 +52,7 @@ dependencies:
   flutter_hooks: ^0.20.5
 
   # Utilities
-  intl: ^0.20.2
+  intl: any
   flutter_local_notifications: ^18.0.1
   uuid: ^4.5.1
 
@@ -52,8 +60,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  fake_cloud_firestore: ^3.1.0
+  firebase_auth_mocks: ^0.14.1
+  mockito: ^5.4.4
+  build_runner: ^2.4.13
 
 flutter:
+  generate: true
   uses-material-design: true
 
   # To add custom fonts to your application, add a fonts section here,

@@ -19,14 +19,22 @@ class VisionService {
     return _model!;
   }
 
-  /// Analyze food image and return MealModel
-  Future<MealModel> analyzeFood(File imageFile) async {
+  /// Analyze food image and return MealModel with goal-aware advice
+  Future<MealModel> analyzeFood(
+    File imageFile, {
+    int calorieGoal = 2000,
+    int caloriesConsumed = 0,
+    double proteinConsumed = 0,
+    double carbsConsumed = 0,
+    double fatConsumed = 0,
+  }) async {
     if (_apiKey.isEmpty) {
       throw Exception(
           'API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY');
     }
 
     final imageBytes = await imageFile.readAsBytes();
+    final remaining = calorieGoal - caloriesConsumed;
 
     final prompt = Content.multi([
       TextPart(
@@ -34,7 +42,13 @@ class VisionService {
         '{"foodName": "string", "calories": int, "protein": double, '
         '"carbs": double, "fat": double, "advice": "string"}. '
         'Sadece JSON döndür, başka bir şey yazma. '
-        'Tavsiyeyi Türkçe yaz.',
+        'Kullanıcının günlük kalori hedefi: $calorieGoal kcal. '
+        'Bugün şu ana kadar tüketilen: $caloriesConsumed kcal '
+        '(Protein: ${proteinConsumed.toStringAsFixed(1)}g, '
+        'Karb: ${carbsConsumed.toStringAsFixed(1)}g, '
+        'Yağ: ${fatConsumed.toStringAsFixed(1)}g). '
+        'Kalan bütçe: $remaining kcal. '
+        'Tavsiyeyi bu bağlama göre kişiselleştir. Türkçe yaz.',
       ),
       DataPart('image/jpeg', imageBytes),
     ]);

@@ -3,6 +3,7 @@ import '../../../shared/models/chat_message_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/providers/home_provider.dart';
 import '../../../services/firestore_service.dart';
+import '../../../services/memory_service.dart';
 import '../services/gemini_service.dart';
 
 /// Chat messages stream
@@ -37,17 +38,30 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
       final userMsg = ChatMessageModel.user(text);
       await FirestoreService.instance.saveChatMessage(authUser.uid, userMsg);
 
+      // Fire-and-forget: extract memories from user message (RAG)
+      MemoryService.instance.processMessage(authUser.uid, text);
+
       // Get recent history for context
       final history =
           await FirestoreService.instance.getRecentMessages(authUser.uid, 20);
 
-      // Build system prompt with user context
+      // Get relevant memories for context enrichment
+      final memories =
+          await MemoryService.instance.getRelevantMemories(authUser.uid);
+
+      // Build system prompt with full user context + memories
       final log = ref.read(todayLogProvider).valueOrNull;
       final systemPrompt = GeminiService.instance.buildSystemPrompt(
         displayName: user.displayName,
         level: user.currentLevel,
         streak: user.streakDays,
         steps: log?.stepCount ?? 0,
+        sleepHours: log?.sleepHours ?? 0,
+        waterGlasses: log?.waterGlasses ?? 0,
+        caloriesConsumed: log?.caloriesConsumed ?? 0,
+        calorieGoal: user.dailyGoals.calories,
+        stepGoal: user.dailyGoals.steps,
+        memories: memories,
       );
 
       // Call Gemini

@@ -9,6 +9,10 @@ import '../../../shared/widgets/circular_progress_painter.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../../../services/firestore_service.dart';
+import '../../../services/health_service.dart';
+import '../widgets/weekly_chart.dart';
+import '../widgets/macro_summary_card.dart';
+import '../widgets/sleep_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -44,6 +48,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     if (authUser == null) return;
     await FirestoreService.instance.ensureTodayLog(authUser.uid);
     await FirestoreService.instance.updateStreak(authUser.uid);
+    // Start real-time step counting
+    final granted = await HealthService.instance.requestPermissions();
+    if (granted) {
+      HealthService.instance.startListening();
+    }
   }
 
   @override
@@ -57,6 +66,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final userAsync = ref.watch(currentUserProvider);
     final logAsync = ref.watch(todayLogProvider);
     final dailyScore = ref.watch(dailyScoreProvider);
+    final weeklyLogs = ref.watch(weeklyLogsProvider);
+    final todayMeals = ref.watch(todayMealsProvider);
 
     return SafeArea(
       child: RefreshIndicator(
@@ -150,6 +161,43 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 32),
+
+                  // Weekly trends chart
+                  Text(
+                    'Weekly Trends',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  weeklyLogs.when(
+                    loading: () => const SizedBox(height: 180),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (logs) => WeeklyChart(logs: logs),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Macro summary card
+                  todayMeals.when(
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
+                    data: (meals) => meals.isNotEmpty
+                        ? MacroSummaryCard(
+                            meals: meals,
+                            calorieGoal: user.dailyGoals.calories,
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Sleep card
+                  SleepCard(
+                    sleepHours: log?.sleepHours ?? 0,
+                    sleepQuality: log?.sleepQuality ?? '',
+                    onTap: () => _showSleepDialog(context),
+                  ),
 
                   // Step card
                   AuraCard(
@@ -290,6 +338,96 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         xpDelta: 15,
         statDeltas: {'vitality': 2},
         taskDescription: '+2 Vitalite (Su hedefine ulaşıldı)',
+      );
+    }
+  }
+
+  Future<void> _showSleepDialog(BuildContext context) async {
+    final hoursController = TextEditingController();
+    String selectedQuality = 'good';
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.cardBackground,
+          title: Text('Log Sleep',
+              style: GoogleFonts.poppins(color: AppTheme.textWhite)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: hoursController,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                style: GoogleFonts.poppins(color: AppTheme.textWhite),
+                decoration:
+                    AppTheme.inputDecoration(hintText: 'Hours slept (e.g. 7.5)'),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: ['good', 'fair', 'poor'].map((q) {
+                  final isSelected = selectedQuality == q;
+                  return GestureDetector(
+                    onTap: () => setDialogState(() => selectedQuality = q),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.statBlue
+                            : AppTheme.background,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        q[0].toUpperCase() + q.substring(1),
+                        style: GoogleFonts.poppins(
+                          color: isSelected
+                              ? Colors.white
+                              : AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel',
+                  style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+            ),
+            TextButton(
+              onPressed: () {
+                final hours = double.tryParse(hoursController.text);
+                if (hours != null && hours > 0) {
+                  Navigator.pop(ctx, {
+                    'hours': hours,
+                    'quality': selectedQuality,
+                  });
+                }
+              },
+              child: Text('Save',
+                  style: GoogleFonts.poppins(color: AppTheme.primaryAccent)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      final uid = ref.read(authStateProvider).valueOrNull?.uid;
+      if (uid == null) return;
+      final today = AppDateUtils.todayKey();
+      await FirestoreService.instance.updateSleepData(
+        uid,
+        today,
+        result['hours'] as double,
+        result['quality'] as String,
       );
     }
   }

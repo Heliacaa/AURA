@@ -3,6 +3,7 @@ const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getMessaging } = require("firebase-admin/messaging");
 
 initializeApp();
 const db = getFirestore();
@@ -111,3 +112,71 @@ exports.onUserDailyLogin = onCall(async (request) => {
 
   return { success: true };
 });
+
+/**
+ * Scheduled coaching check — runs every day at 20:00 Turkey time.
+ * Sends motivational push notifications to users who are behind on goals.
+ */
+exports.scheduledCoachingCheck = onSchedule(
+  { schedule: "0 20 * * *", timeZone: "Europe/Istanbul" },
+  async () => {
+    const usersSnapshot = await db.collection("users").get();
+    const today = new Date().toISOString().split("T")[0];
+    const messaging = getMessaging();
+    let sent = 0;
+
+    for (const userDoc of usersSnapshot.docs) {
+      const userData = userDoc.data();
+      const fcmToken = userData.fcmToken;
+      if (!fcmToken) continue;
+
+      const goals = userData.dailyGoals || {};
+      const logDoc = await userDoc.ref.collection("dailyLogs").doc(today).get();
+      if (!logDoc.exists) continue;
+
+      const log = logDoc.data();
+      const messages = [];
+
+      // Check steps
+      const stepGoal = goals.steps || 10000;
+      const steps = log.stepCount || 0;
+      if (steps < stepGoal * 0.5) {
+        messages.push(`Bugün henüz ${steps} adım attın, hedefin ${stepGoal}. Kısa bir yürüyüşe ne dersin?`);
+      }
+
+      // Check water
+      const waterGoal = goals.water || 8;
+      const water = log.waterGlasses || 0;
+      if (water < waterGoal * 0.5) {
+        messages.push(`Henüz ${water} bardak su içtin, hedefin ${waterGoal}. Su içmeyi unutma!`);
+      }
+
+      // Check calories
+      const calGoal = goals.calories || 2000;
+      const consumed = log.caloriesConsumed || 0;
+      if (consumed === 0) {
+        messages.push("Bugün henüz yemek kaydetmedin. Yemeklerini taramayı unutma!");
+      }
+
+      if (messages.length > 0) {
+        try {
+          await messaging.send({
+            token: fcmToken,
+            notification: {
+              title: "AURA Koçun Hatırlatıyor 🌟",
+              body: messages[0],
+            },
+            data: {
+              type: "coaching",
+            },
+          });
+          sent++;
+        } catch (e) {
+          console.log(`Failed to send to ${userDoc.id}:`, e.message);
+        }
+      }
+    }
+
+    console.log(`Coaching notifications sent to ${sent} users.`);
+  }
+);
