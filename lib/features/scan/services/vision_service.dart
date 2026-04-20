@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../../shared/models/meal_model.dart';
 
@@ -7,7 +8,7 @@ class VisionService {
   VisionService._();
   static final instance = VisionService._();
 
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   GenerativeModel? _model;
 
@@ -29,8 +30,7 @@ class VisionService {
     double fatConsumed = 0,
   }) async {
     if (_apiKey.isEmpty) {
-      throw Exception(
-          'API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY');
+      throw Exception('API anahtarı yapılandırılmamış. Lütfen .env dosyanızı kontrol edin.');
     }
 
     final imageBytes = await imageFile.readAsBytes();

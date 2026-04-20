@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../shared/models/memory_model.dart';
 
@@ -7,7 +8,7 @@ class MemoryService {
   MemoryService._();
   static final instance = MemoryService._();
 
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   GenerativeModel? _model;

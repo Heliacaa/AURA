@@ -89,7 +89,7 @@
   "chatOnline": "Çevrimiçi",
   "chatHint": "Mesaj yaz...",
   "chatEmpty": "AI yaşam koçuna merhaba de! 👋",
-  "apiKeyMissing": "API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştırın.",
+  "apiKeyMissing": "API anahtarı yapılandırılmamış. Lütfen .env dosyanızı kontrol edin.",
   "homePage": "Ana Sayfa",
   "assistant": "Asistan",
   "scan": "Tarama",

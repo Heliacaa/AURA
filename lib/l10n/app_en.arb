@@ -89,7 +89,7 @@
   "chatOnline": "Online",
   "chatHint": "Type a message...",
   "chatEmpty": "Say hi to your AI life coach! 👋",
-  "apiKeyMissing": "API key not configured. Run with --dart-define=GEMINI_API_KEY=YOUR_KEY",
+  "apiKeyMissing": "API key not configured. Please check your .env file.",
   "homePage": "Home",
   "assistant": "Assistant",
   "scan": "Scan",

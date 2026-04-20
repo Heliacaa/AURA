@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../../shared/models/chat_message_model.dart';
 import '../../../shared/models/memory_model.dart';
@@ -6,7 +7,7 @@ class GeminiService {
   GeminiService._();
   static final instance = GeminiService._();
 
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   GenerativeModel? _model;
 
@@ -59,7 +60,7 @@ Eğer kullanıcının yaklaşan etkinlikleri veya hedefleri varsa, proaktif olar
     required String systemPrompt,
   }) async {
     if (_apiKey.isEmpty) {
-      return 'API anahtarı yapılandırılmamış. Uygulamayı --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştırın.';
+      return 'API anahtarı yapılandırılmamış. Lütfen .env dosyanızı kontrol edin.';
     }
 
     final chat = model.startChat(

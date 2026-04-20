@@ -259,7 +259,7 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get apiKeyMissing =>
-      'API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştırın.';
+      'API anahtarı yapılandırılmamış. Lütfen .env dosyanızı kontrol edin.';
 
   @override
   String get homePage => 'Ana Sayfa';
