@@ -91,6 +91,13 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
       ref.read(chatLoadingProvider.notifier).state = false;
     }
   }
+
+  Future<void> clearHistory() async {
+    final authUser = ref.read(authStateProvider).valueOrNull;
+    if (authUser == null) return;
+
+    await FirestoreService.instance.clearChatHistory(authUser.uid);
+  }
 }
 
 final chatNotifierProvider =

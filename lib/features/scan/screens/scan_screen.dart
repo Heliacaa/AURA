@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -48,8 +49,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     );
     if (picked == null) return;
 
-    final file = File(picked.path);
-    ref.read(scannedImageProvider.notifier).state = file;
+    ref.read(scannedImageProvider.notifier).state = picked;
     ref.read(scanResultProvider.notifier).state = null;
 
     // Start analysis
@@ -72,7 +72,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       }
 
       final result = await VisionService.instance.analyzeFood(
-        file,
+        picked,
         calorieGoal: user?.dailyGoals.calories ?? 2000,
         caloriesConsumed: caloriesConsumed,
         proteinConsumed: proteinConsumed,
@@ -175,7 +175,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     children: [
                       if (image != null)
                         Positioned.fill(
-                          child: Image.file(image, fit: BoxFit.cover),
+                          child: kIsWeb
+                              ? Image.network(image.path, fit: BoxFit.cover)
+                              : Image.file(File(image.path), fit: BoxFit.cover),
                         )
                       else
                         Center(

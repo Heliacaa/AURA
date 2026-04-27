@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../../shared/models/chat_message_model.dart';
 import '../../../shared/models/memory_model.dart';
@@ -6,7 +7,7 @@ class GeminiService {
   GeminiService._();
   static final instance = GeminiService._();
 
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   GenerativeModel? _model;
 

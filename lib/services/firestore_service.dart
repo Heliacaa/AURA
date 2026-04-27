@@ -279,6 +279,16 @@ class FirestoreService {
         .toList();
   }
 
+  /// Clear entire chat history
+  Future<void> clearChatHistory(String uid) async {
+    final snap = await _chatHistory(uid).get();
+    final batch = _db.batch();
+    for (final doc in snap.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
+
   // ─── Achievements ─────────────────────────────────────────
 
   /// Stream achievements

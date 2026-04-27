@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import '../../../shared/models/meal_model.dart';
 
@@ -7,13 +9,13 @@ class VisionService {
   VisionService._();
   static final instance = VisionService._();
 
-  static const _apiKey = String.fromEnvironment('GEMINI_API_KEY');
+  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
 
   GenerativeModel? _model;
 
   GenerativeModel get model {
     _model ??= GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: _apiKey,
     );
     return _model!;
@@ -21,7 +23,7 @@ class VisionService {
 
   /// Analyze food image and return MealModel with goal-aware advice
   Future<MealModel> analyzeFood(
-    File imageFile, {
+    XFile imageFile, {
     int calorieGoal = 2000,
     int caloriesConsumed = 0,
     double proteinConsumed = 0,

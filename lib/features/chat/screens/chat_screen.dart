@@ -32,6 +32,34 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     ref.read(chatNotifierProvider.notifier).sendMessage(text);
   }
 
+  void _confirmClearHistory(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBackground,
+        title: Text('Sohbet Geçmişini Sil',
+            style: GoogleFonts.poppins(color: AppTheme.textWhite)),
+        content: Text('Tüm sohbet geçmişini silmek istediğinin emin misin? Bu işlem geri alınamaz.',
+            style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('İptal',
+                style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              ref.read(chatNotifierProvider.notifier).clearHistory();
+            },
+            child: Text('Evet, Sil',
+                style: GoogleFonts.poppins(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final messagesAsync = ref.watch(chatMessagesProvider);
@@ -76,6 +104,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                     ),
                   ],
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: () => _confirmClearHistory(context),
+                  icon: const Icon(Icons.delete_outline,
+                      color: AppTheme.textSecondary),
+                  tooltip: 'Geçmişi Temizle',
                 ),
               ],
             ),
