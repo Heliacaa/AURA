@@ -12,7 +12,7 @@ class GeminiService {
 
   GenerativeModel get model {
     _model ??= GenerativeModel(
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       apiKey: _apiKey,
     );
     return _model!;
@@ -62,17 +62,47 @@ Eğer kullanıcının yaklaşan etkinlikleri veya hedefleri varsa, proaktif olar
       return 'API anahtarı yapılandırılmamış. Uygulamayı --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştırın.';
     }
 
-    final chat = model.startChat(
-      history: [
-        Content.text(systemPrompt),
-        ...history.map((msg) {
-          if (msg.isUser) {
-            return Content.text(msg.content);
-          } else {
-            return Content.model([TextPart(msg.content)]);
-          }
-        }),
-      ],
+    // Create a new model instance for each request to inject the dynamic system prompt
+    final dynamicModel = GenerativeModel(
+      model: 'gemini-2.5-pro',
+      apiKey: _apiKey,
+      systemInstruction: Content.system(systemPrompt),
+    );
+
+    // Ensure history is alternating user/model
+    final normalizedHistory = <ChatMessageModel>[];
+    for (final msg in history) {
+      if (normalizedHistory.isNotEmpty) {
+        if (normalizedHistory.last.isUser == msg.isUser) {
+          // If two of the same role are consecutive, we skip or replace to keep alternate.
+          // For simplicity, let's keep the newer one or merge them.
+          // It's easier just to merge their content
+          final last = normalizedHistory.removeLast();
+          normalizedHistory.add(
+            msg.isUser
+                ? ChatMessageModel.user('${last.content}\n${msg.content}')
+                : ChatMessageModel.assistant('${last.content}\n${msg.content}'),
+          );
+          continue;
+        }
+      }
+      normalizedHistory.add(msg);
+    }
+
+    // Ensure the last item in normalized history before sending is NOT a user message
+    // because `chat.sendMessage(...)` appends the next user message.
+    if (normalizedHistory.isNotEmpty && normalizedHistory.last.isUser) {
+      normalizedHistory.removeLast();
+    }
+
+    final chat = dynamicModel.startChat(
+      history: normalizedHistory.map((msg) {
+        if (msg.isUser) {
+          return Content.text(msg.content);
+        } else {
+          return Content.model([TextPart(msg.content)]);
+        }
+      }).toList(),
     );
 
     final response = await chat.sendMessage(Content.text(userMessage));

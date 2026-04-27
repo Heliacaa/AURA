@@ -34,16 +34,16 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
     ref.read(chatLoadingProvider.notifier).state = true;
 
     try {
+      // Get recent history for context BEFORE saving the new user message
+      final history =
+          await FirestoreService.instance.getRecentMessages(authUser.uid, 20);
+
       // Save user message
       final userMsg = ChatMessageModel.user(text);
       await FirestoreService.instance.saveChatMessage(authUser.uid, userMsg);
 
       // Fire-and-forget: extract memories from user message (RAG)
       MemoryService.instance.processMessage(authUser.uid, text);
-
-      // Get recent history for context
-      final history =
-          await FirestoreService.instance.getRecentMessages(authUser.uid, 20);
 
       // Get relevant memories for context enrichment
       final memories =
@@ -82,6 +82,11 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
         statDeltas: {'intelligence': 2},
         taskDescription: '+2 Zeka (AI sohbeti)',
       );
+    } catch (e) {
+      // If AI fails, tell the user gracefully rather than swallowing the error
+      final errorMsg = ChatMessageModel.assistant(
+          'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen daha sonra tekrar dene. ($e)');
+      await FirestoreService.instance.saveChatMessage(authUser.uid, errorMsg);
     } finally {
       ref.read(chatLoadingProvider.notifier).state = false;
     }

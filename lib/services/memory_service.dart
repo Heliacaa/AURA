@@ -12,7 +12,7 @@ class MemoryService {
 
   GenerativeModel? _model;
   GenerativeModel get model {
-    _model ??= GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+    _model ??= GenerativeModel(model: 'gemini-1.5-flash-latest', apiKey: _apiKey);
     return _model!;
   }
 
@@ -44,8 +44,23 @@ User message: "$userMessage"
 
       final List<dynamic> jsonList = jsonDecode(jsonStr) as List<dynamic>;
       return jsonList
-          .map((item) =>
-              MemoryModel.fromJson(item as Map<String, dynamic>))
+          .map((item) {
+            try {
+              // Only parse if it has valid category and content
+              if (item is Map<String, dynamic> && item.containsKey('content')) {
+                return MemoryModel(
+                  content: item['content'] as String,
+                  category: item['category'] as String? ?? 'general',
+                  extractedAt: DateTime.now(),
+                  relevantDate: item['relevantDate'] != null 
+                      ? DateTime.tryParse(item['relevantDate'].toString()) 
+                      : null,
+                );
+              }
+            } catch (_) {}
+            return null;
+          })
+          .whereType<MemoryModel>()
           .toList();
     } catch (_) {
       return [];
