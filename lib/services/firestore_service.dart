@@ -20,8 +20,7 @@ class FirestoreService {
   CollectionReference _dailyLogs(String uid) =>
       _userDoc(uid).collection('dailyLogs');
 
-  CollectionReference _meals(String uid) =>
-      _userDoc(uid).collection('meals');
+  CollectionReference _meals(String uid) => _userDoc(uid).collection('meals');
 
   CollectionReference _chatHistory(String uid) =>
       _userDoc(uid).collection('chatHistory');
@@ -85,7 +84,12 @@ class FirestoreService {
     bool leveledUp = false;
 
     await _db.runTransaction((transaction) async {
-      final userDoc = await transaction.get(_userDoc(uid));
+      final userRef = _userDoc(uid);
+      final today = AppDateUtils.todayKey();
+      final logRef = _dailyLogs(uid).doc(today);
+
+      final userDoc = await transaction.get(userRef);
+      final logDoc = await transaction.get(logRef);
       if (!userDoc.exists) return;
 
       final data = userDoc.data() as Map<String, dynamic>;
@@ -113,7 +117,7 @@ class FirestoreService {
         updatedStats[entry.key] = current + entry.value;
       }
 
-      transaction.update(_userDoc(uid), {
+      transaction.update(userRef, {
         'xp': currentXp,
         'currentLevel': currentLevel,
         'xpToNextLevel': xpToNext,
@@ -122,9 +126,6 @@ class FirestoreService {
       });
 
       // Also update today's log xpEarned
-      final today = AppDateUtils.todayKey();
-      final logRef = _dailyLogs(uid).doc(today);
-      final logDoc = await transaction.get(logRef);
       if (logDoc.exists) {
         final logData = logDoc.data() as Map<String, dynamic>? ?? {};
         final earned = (logData['xpEarned'] as num?)?.toInt() ?? 0;
@@ -184,20 +185,24 @@ class FirestoreService {
     final today = AppDateUtils.todayKey();
     final doc = await _dailyLogs(uid).doc(today).get();
     if (!doc.exists) {
-      await _dailyLogs(uid)
-          .doc(today)
-          .set(DailyLogModel.empty(today).toFirestore());
+      await _dailyLogs(
+        uid,
+      ).doc(today).set(DailyLogModel.empty(today).toFirestore());
     }
   }
 
   /// Update daily log fields
   Future<void> updateDailyLog(
-      String uid, String dateKey, Map<String, dynamic> data) async {
+    String uid,
+    String dateKey,
+    Map<String, dynamic> data,
+  ) async {
     await _dailyLogs(uid).doc(dateKey).update(data);
   }
 
   /// Calculate and update daily score
-  Future<void> updateDailyScore(String uid, {
+  Future<void> updateDailyScore(
+    String uid, {
     required int stepGoal,
     required int waterGoal,
   }) async {
@@ -211,7 +216,10 @@ class FirestoreService {
     final waterScore = (log.waterGlasses / waterGoal * 20).clamp(0, 20).toInt();
     final streakBonus = 20; // full bonus if active today
 
-    final score = (stepsScore + mealsScore + waterScore + streakBonus).clamp(0, 100);
+    final score = (stepsScore + mealsScore + waterScore + streakBonus).clamp(
+      0,
+      100,
+    );
 
     await _dailyLogs(uid).doc(today).update({'dailyScore': score});
   }
@@ -232,7 +240,8 @@ class FirestoreService {
         transaction.update(logRef, {
           'mealsLogged': ((data['mealsLogged'] as num?)?.toInt() ?? 0) + 1,
           'caloriesConsumed':
-              ((data['caloriesConsumed'] as num?)?.toInt() ?? 0) + meal.calories,
+              ((data['caloriesConsumed'] as num?)?.toInt() ?? 0) +
+              meal.calories,
         });
       }
     });
@@ -244,8 +253,9 @@ class FirestoreService {
         .orderBy('timestamp', descending: true)
         .limit(20)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => MealModel.fromFirestore(d)).toList());
+        .map(
+          (snap) => snap.docs.map((d) => MealModel.fromFirestore(d)).toList(),
+        );
   }
 
   // ─── Chat ─────────────────────────────────────────────────
@@ -261,17 +271,20 @@ class FirestoreService {
         .orderBy('timestamp', descending: true)
         .limit(50)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => ChatMessageModel.fromFirestore(d)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => ChatMessageModel.fromFirestore(d)).toList(),
+        );
   }
 
   /// Get last N messages for context
   Future<List<ChatMessageModel>> getRecentMessages(
-      String uid, int limit) async {
-    final snap = await _chatHistory(uid)
-        .orderBy('timestamp', descending: true)
-        .limit(limit)
-        .get();
+    String uid,
+    int limit,
+  ) async {
+    final snap = await _chatHistory(
+      uid,
+    ).orderBy('timestamp', descending: true).limit(limit).get();
     return snap.docs
         .map((d) => ChatMessageModel.fromFirestore(d))
         .toList()
@@ -296,13 +309,17 @@ class FirestoreService {
     return _achievements(uid)
         .orderBy('unlockedAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => AchievementModel.fromFirestore(d)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => AchievementModel.fromFirestore(d)).toList(),
+        );
   }
 
   /// Unlock an achievement
   Future<void> unlockAchievement(
-      String uid, AchievementModel achievement) async {
+    String uid,
+    AchievementModel achievement,
+  ) async {
     await _achievements(uid).doc(achievement.id).set(achievement.toFirestore());
   }
 
@@ -319,21 +336,29 @@ class FirestoreService {
   }) async {
     final now = DateTime.now();
     // Add to sender's friends list
-    await _friends(fromUid).doc(toUid).set(FriendshipModel(
-      friendUid: toUid,
-      friendName: toName,
-      friendEmail: toEmail,
-      status: 'pending',
-      createdAt: now,
-    ).toFirestore());
+    await _friends(fromUid)
+        .doc(toUid)
+        .set(
+          FriendshipModel(
+            friendUid: toUid,
+            friendName: toName,
+            friendEmail: toEmail,
+            status: 'pending',
+            createdAt: now,
+          ).toFirestore(),
+        );
     // Add to receiver's friends list
-    await _friends(toUid).doc(fromUid).set(FriendshipModel(
-      friendUid: fromUid,
-      friendName: fromName,
-      friendEmail: fromEmail,
-      status: 'pending',
-      createdAt: now,
-    ).toFirestore());
+    await _friends(toUid)
+        .doc(fromUid)
+        .set(
+          FriendshipModel(
+            friendUid: fromUid,
+            friendName: fromName,
+            friendEmail: fromEmail,
+            status: 'pending',
+            createdAt: now,
+          ).toFirestore(),
+        );
   }
 
   /// Accept friend request
@@ -353,8 +378,10 @@ class FirestoreService {
     return _friends(uid)
         .where('status', isEqualTo: 'accepted')
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList(),
+        );
   }
 
   /// Stream pending friend requests (received)
@@ -362,8 +389,10 @@ class FirestoreService {
     return _friends(uid)
         .where('status', isEqualTo: 'pending')
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList(),
+        );
   }
 
   /// Search user by email
@@ -395,11 +424,14 @@ class FirestoreService {
 
   /// Update sleep data in today's log
   Future<void> updateSleepData(
-      String uid, String dateKey, double hours, String quality) async {
-    await _dailyLogs(uid).doc(dateKey).update({
-      'sleepHours': hours,
-      'sleepQuality': quality,
-    });
+    String uid,
+    String dateKey,
+    double hours,
+    String quality,
+  ) async {
+    await _dailyLogs(
+      uid,
+    ).doc(dateKey).update({'sleepHours': hours, 'sleepQuality': quality});
   }
 
   // ─── Weekly Logs ──────────────────────────────────────────
@@ -422,13 +454,19 @@ class FirestoreService {
   /// Stream meals for today only
   Stream<List<MealModel>> todayMealsStream(String uid) {
     final todayStart = DateTime(
-        DateTime.now().year, DateTime.now().month, DateTime.now().day);
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+    );
     return _meals(uid)
-        .where('timestamp',
-            isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .where(
+          'timestamp',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart),
+        )
         .orderBy('timestamp', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((d) => MealModel.fromFirestore(d)).toList());
+        .map(
+          (snap) => snap.docs.map((d) => MealModel.fromFirestore(d)).toList(),
+        );
   }
 }

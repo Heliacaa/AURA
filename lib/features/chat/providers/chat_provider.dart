@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../shared/models/chat_message_model.dart';
 import '../../auth/providers/auth_provider.dart';
@@ -35,8 +36,10 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
 
     try {
       // Get recent history for context BEFORE saving the new user message
-      final history =
-          await FirestoreService.instance.getRecentMessages(authUser.uid, 20);
+      final history = await FirestoreService.instance.getRecentMessages(
+        authUser.uid,
+        20,
+      );
 
       // Save user message
       final userMsg = ChatMessageModel.user(text);
@@ -46,8 +49,9 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
       MemoryService.instance.processMessage(authUser.uid, text);
 
       // Get relevant memories for context enrichment
-      final memories =
-          await MemoryService.instance.getRelevantMemories(authUser.uid);
+      final memories = await MemoryService.instance.getRelevantMemories(
+        authUser.uid,
+      );
 
       // Build system prompt with full user context + memories
       final log = ref.read(todayLogProvider).valueOrNull;
@@ -76,16 +80,22 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
       await FirestoreService.instance.saveChatMessage(authUser.uid, aiMsg);
 
       // Award XP for chat interaction
-      await FirestoreService.instance.updateUserXP(
-        uid: authUser.uid,
-        xpDelta: 10,
-        statDeltas: {'intelligence': 2},
-        taskDescription: '+2 Zeka (AI sohbeti)',
-      );
-    } catch (e) {
+      try {
+        await FirestoreService.instance.updateUserXP(
+          uid: authUser.uid,
+          xpDelta: 10,
+          statDeltas: {'intelligence': 2},
+          taskDescription: '+2 Zeka (AI sohbeti)',
+        );
+      } catch (e, stackTrace) {
+        debugPrint('Chat XP update failed: $e\n$stackTrace');
+      }
+    } catch (e, stackTrace) {
+      debugPrint('Chat message failed: $e\n$stackTrace');
       // If AI fails, tell the user gracefully rather than swallowing the error
       final errorMsg = ChatMessageModel.assistant(
-          'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen daha sonra tekrar dene. ($e)');
+        'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen daha sonra tekrar dene.',
+      );
       await FirestoreService.instance.saveChatMessage(authUser.uid, errorMsg);
     } finally {
       ref.read(chatLoadingProvider.notifier).state = false;
@@ -102,5 +112,5 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
 
 final chatNotifierProvider =
     StateNotifierProvider<ChatNotifier, AsyncValue<void>>((ref) {
-  return ChatNotifier(ref);
-});
+      return ChatNotifier(ref);
+    });
