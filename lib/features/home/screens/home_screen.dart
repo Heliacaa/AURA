@@ -13,6 +13,7 @@ import '../../../services/health_service.dart';
 import '../widgets/weekly_chart.dart';
 import '../widgets/macro_summary_card.dart';
 import '../widgets/sleep_card.dart';
+import '../widgets/daily_quests_card.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -216,6 +217,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     ),
                   ),
                   const SizedBox(height: 32),
+
+                  DailyQuestsCard(
+                    uid: user.uid,
+                    log: log,
+                    goals: user.dailyGoals,
+                  ),
+                  const SizedBox(height: 24),
 
                   // Weekly trends chart
                   Text(

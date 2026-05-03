@@ -14,6 +14,7 @@ class DailyLogModel {
   final int mealsLogged;
   final double sleepHours;
   final String sleepQuality; // good, fair, poor
+  final List<String> claimedQuestIds;
 
   const DailyLogModel({
     required this.date,
@@ -29,6 +30,7 @@ class DailyLogModel {
     this.mealsLogged = 0,
     this.sleepHours = 0,
     this.sleepQuality = '',
+    this.claimedQuestIds = const [],
   });
 
   factory DailyLogModel.fromFirestore(DocumentSnapshot doc) {
@@ -41,7 +43,8 @@ class DailyLogModel {
       caloriesBurned: (data['caloriesBurned'] as num?)?.toInt() ?? 0,
       waterGlasses: (data['waterGlasses'] as num?)?.toInt() ?? 0,
       mood: data['mood'] as String? ?? '',
-      completedTasks: (data['completedTasks'] as List<dynamic>?)
+      completedTasks:
+          (data['completedTasks'] as List<dynamic>?)
               ?.map((e) => e.toString())
               .toList() ??
           [],
@@ -50,23 +53,29 @@ class DailyLogModel {
       mealsLogged: (data['mealsLogged'] as num?)?.toInt() ?? 0,
       sleepHours: (data['sleepHours'] as num?)?.toDouble() ?? 0,
       sleepQuality: data['sleepQuality'] as String? ?? '',
+      claimedQuestIds:
+          (data['claimedQuestIds'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-        'date': Timestamp.fromDate(timestamp),
-        'stepCount': stepCount,
-        'caloriesConsumed': caloriesConsumed,
-        'caloriesBurned': caloriesBurned,
-        'waterGlasses': waterGlasses,
-        'mood': mood,
-        'completedTasks': completedTasks,
-        'dailyScore': dailyScore,
-        'xpEarned': xpEarned,
-        'mealsLogged': mealsLogged,
-        'sleepHours': sleepHours,
-        'sleepQuality': sleepQuality,
-      };
+    'date': Timestamp.fromDate(timestamp),
+    'stepCount': stepCount,
+    'caloriesConsumed': caloriesConsumed,
+    'caloriesBurned': caloriesBurned,
+    'waterGlasses': waterGlasses,
+    'mood': mood,
+    'completedTasks': completedTasks,
+    'dailyScore': dailyScore,
+    'xpEarned': xpEarned,
+    'mealsLogged': mealsLogged,
+    'sleepHours': sleepHours,
+    'sleepQuality': sleepQuality,
+    'claimedQuestIds': claimedQuestIds,
+  };
 
   DailyLogModel copyWith({
     int? stepCount,
@@ -80,6 +89,7 @@ class DailyLogModel {
     int? mealsLogged,
     double? sleepHours,
     String? sleepQuality,
+    List<String>? claimedQuestIds,
   }) {
     return DailyLogModel(
       date: date,
@@ -95,14 +105,12 @@ class DailyLogModel {
       mealsLogged: mealsLogged ?? this.mealsLogged,
       sleepHours: sleepHours ?? this.sleepHours,
       sleepQuality: sleepQuality ?? this.sleepQuality,
+      claimedQuestIds: claimedQuestIds ?? this.claimedQuestIds,
     );
   }
 
   /// Create an empty log for today
   factory DailyLogModel.empty(String dateKey) {
-    return DailyLogModel(
-      date: dateKey,
-      timestamp: DateTime.now(),
-    );
+    return DailyLogModel(date: dateKey, timestamp: DateTime.now());
   }
 }

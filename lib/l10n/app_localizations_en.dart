@@ -91,6 +91,58 @@ class AppLocalizationsEn extends AppLocalizations {
   String get weeklyTrends => 'Weekly Trends';
 
   @override
+  String get dailyQuests => 'Daily Quests';
+
+  @override
+  String dailyQuestProgress(int completed, int total) {
+    return '$completed / $total rewards claimed';
+  }
+
+  @override
+  String get dailyQuestClaim => 'Claim';
+
+  @override
+  String get dailyQuestClaimed => 'Claimed';
+
+  @override
+  String get dailyQuestLocked => 'Locked';
+
+  @override
+  String get dailyQuestRewardClaimed => 'Quest reward claimed!';
+
+  @override
+  String get dailyQuestAlreadyClaimed => 'This quest is already claimed.';
+
+  @override
+  String dailyQuestClaimFailed(String error) {
+    return 'Could not claim quest: $error';
+  }
+
+  @override
+  String get sleepQuestTitle => 'Sleep Log';
+
+  @override
+  String get sleepQuestSubtitle => 'Log last night\'s sleep';
+
+  @override
+  String get mealQuestTitle => 'Meal Log';
+
+  @override
+  String get mealQuestSubtitle => 'Scan and save at least 1 meal';
+
+  @override
+  String get waterQuestTitle => 'Water Goal';
+
+  @override
+  String get waterQuestSubtitle => 'Complete your daily water goal';
+
+  @override
+  String get stepsQuestTitle => 'Step Goal';
+
+  @override
+  String get stepsQuestSubtitle => 'Complete your daily step goal';
+
+  @override
   String get sleepCard => 'Sleep';
 
   @override
@@ -311,6 +363,42 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get weeklyXp => 'Weekly XP';
+
+  @override
+  String get weeklyLeague => 'Weekly League';
+
+  @override
+  String get friendsRanking => 'Friends';
+
+  @override
+  String get weeklyLeagueActive => 'Weekly League active';
+
+  @override
+  String get weeklyLeagueInactive => 'Weekly League off';
+
+  @override
+  String weeklyLeagueActiveSubtitle(int xp) {
+    return 'You are ranked with $xp XP this week.';
+  }
+
+  @override
+  String get weeklyLeagueInactiveSubtitle =>
+      'Join to appear in the weekly XP ranking.';
+
+  @override
+  String get weeklyLeagueEmpty =>
+      'No one is in this week\'s league yet. You can be first.';
+
+  @override
+  String get weeklyLeagueEnabled => 'Weekly League visibility enabled.';
+
+  @override
+  String get weeklyLeagueDisabled => 'Weekly League visibility disabled.';
+
+  @override
+  String weeklyLeagueUpdateFailed(String error) {
+    return 'Could not update leaderboard: $error';
+  }
 
   @override
   String get streak => 'Streak';

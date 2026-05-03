@@ -7,6 +7,19 @@ class AppDateUtils {
     return DateFormat('yyyy-MM-dd').format(DateTime.now());
   }
 
+  static String weekKey([DateTime? date]) {
+    final localDate = date ?? DateTime.now();
+    final day = DateTime(localDate.year, localDate.month, localDate.day);
+    final thursday = day.add(Duration(days: DateTime.thursday - day.weekday));
+    final firstThursdaySeed = DateTime(thursday.year, 1, 4);
+    final firstThursday = firstThursdaySeed.add(
+      Duration(days: DateTime.thursday - firstThursdaySeed.weekday),
+    );
+    final weekNumber = 1 + thursday.difference(firstThursday).inDays ~/ 7;
+
+    return '${thursday.year}-W${weekNumber.toString().padLeft(2, '0')}';
+  }
+
   static String formatDate(DateTime date) {
     return DateFormat('yyyy-MM-dd').format(date);
   }

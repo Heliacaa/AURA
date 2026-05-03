@@ -2,7 +2,7 @@ const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { getFirestore } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
 
 initializeApp();
@@ -32,6 +32,9 @@ exports.scheduledDailyReset = onSchedule(
         dailyScore: 0,
         xpEarned: 0,
         mealsLogged: 0,
+        sleepHours: 0,
+        sleepQuality: "",
+        claimedQuestIds: [],
       });
     }
 
@@ -42,30 +45,12 @@ exports.scheduledDailyReset = onSchedule(
 
 /**
  * Triggered when a new meal is saved.
- * Awards XP and updates user stats.
+ * XP is awarded by the Flutter client so quest/weekly XP stays consistent.
  */
 exports.onMealSaved = onDocumentCreated(
   "users/{userId}/meals/{mealId}",
   async (event) => {
-    const userId = event.params.userId;
-    const userRef = db.collection("users").doc(userId);
-
-    await db.runTransaction(async (transaction) => {
-      const userDoc = await transaction.get(userRef);
-      if (!userDoc.exists) return;
-
-      const userData = userDoc.data();
-      const currentXp = userData.xp || 0;
-      const newXp = currentXp + 15;
-
-      const stats = userData.stats || {};
-      const vitality = stats.vitality || 0;
-
-      transaction.update(userRef, {
-        xp: newXp,
-        "stats.vitality": vitality + 2,
-      });
-    });
+    console.log(`Meal XP trigger skipped for ${event.params.userId}.`);
   }
 );
 

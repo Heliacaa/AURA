@@ -105,6 +105,9 @@ void main() {
           waterGlasses: 10,
         ),
         socialEnergyLevel: 'Yüksek',
+        leaderboardOptIn: true,
+        weeklyXp: 320,
+        weeklyXpWeek: '2026-W18',
         fcmToken: 'token123',
       );
     });
@@ -116,6 +119,20 @@ void main() {
       expect(user.copyWith(currentClass: 'Champion').classIcon, '⚔️');
       expect(user.copyWith(currentClass: 'Legend').classIcon, '👑');
       expect(user.copyWith(currentClass: 'Unknown').classIcon, '🌱');
+    });
+
+    test('leaderboard defaults are private and empty', () {
+      final model = UserModel(
+        uid: 'u1',
+        displayName: 'Private User',
+        email: 'private@test.com',
+        createdAt: DateTime(2024, 1, 1),
+        lastActiveDate: DateTime(2024, 1, 1),
+      );
+
+      expect(model.leaderboardOptIn, isFalse);
+      expect(model.weeklyXp, 0);
+      expect(model.weeklyXpWeek, '');
     });
 
     test('classForLevel returns correct class', () {
@@ -161,6 +178,9 @@ void main() {
       expect(map['currentClass'], 'Warrior');
       expect(map['xp'], 5000);
       expect(map['streakDays'], 7);
+      expect(map['leaderboardOptIn'], isTrue);
+      expect(map['weeklyXp'], 320);
+      expect(map['weeklyXpWeek'], '2026-W18');
       expect(map['fcmToken'], 'token123');
       expect(map['stats']['strength'], 10);
       expect(map['dailyGoals']['steps'], 12000);

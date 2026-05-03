@@ -8,10 +8,14 @@ import '../shared/models/friendship_model.dart';
 import '../core/utils/date_utils.dart';
 
 class FirestoreService {
-  FirestoreService._();
+  FirestoreService({FirebaseFirestore? firestore})
+    : _db = firestore ?? FirebaseFirestore.instance;
+
+  FirestoreService._() : _db = FirebaseFirestore.instance;
+
   static final instance = FirestoreService._();
 
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final FirebaseFirestore _db;
 
   // ─── References ───────────────────────────────────────────
 
@@ -30,6 +34,12 @@ class FirestoreService {
 
   CollectionReference _friends(String uid) =>
       _userDoc(uid).collection('friends');
+
+  CollectionReference _leaderboardEntries(String weekKey) =>
+      _db.collection('leaderboards').doc(weekKey).collection('entries');
+
+  DocumentReference _leaderboardEntry(String weekKey, String uid) =>
+      _leaderboardEntries(weekKey).doc(uid);
 
   // ─── User ─────────────────────────────────────────────────
 
@@ -82,11 +92,13 @@ class FirestoreService {
     String? taskDescription,
   }) async {
     bool leveledUp = false;
+    final currentWeek = AppDateUtils.weekKey();
 
     await _db.runTransaction((transaction) async {
       final userRef = _userDoc(uid);
       final today = AppDateUtils.todayKey();
       final logRef = _dailyLogs(uid).doc(today);
+      final leaderboardRef = _leaderboardEntry(currentWeek, uid);
 
       final userDoc = await transaction.get(userRef);
       final logDoc = await transaction.get(logRef);
@@ -96,9 +108,17 @@ class FirestoreService {
       int currentXp = (data['xp'] as num?)?.toInt() ?? 0;
       int currentLevel = (data['currentLevel'] as num?)?.toInt() ?? 1;
       int xpToNext = (data['xpToNextLevel'] as num?)?.toInt() ?? 500;
+      int weeklyXp = (data['weeklyXp'] as num?)?.toInt() ?? 0;
+      String weeklyXpWeek = data['weeklyXpWeek'] as String? ?? '';
+      final leaderboardOptIn = data['leaderboardOptIn'] as bool? ?? false;
       final stats = data['stats'] as Map<String, dynamic>? ?? {};
 
       currentXp += xpDelta;
+      if (weeklyXpWeek != currentWeek) {
+        weeklyXp = 0;
+        weeklyXpWeek = currentWeek;
+      }
+      weeklyXp += xpDelta;
 
       // Check for level up
       while (currentXp >= xpToNext) {
@@ -122,8 +142,22 @@ class FirestoreService {
         'currentLevel': currentLevel,
         'xpToNextLevel': xpToNext,
         'currentClass': newClass,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
         'stats': updatedStats,
       });
+
+      if (leaderboardOptIn) {
+        transaction.set(leaderboardRef, {
+          'uid': uid,
+          'displayName': data['displayName'] ?? '',
+          'currentLevel': currentLevel,
+          'currentClass': newClass,
+          'weeklyXp': weeklyXp,
+          'weekKey': currentWeek,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      }
 
       // Also update today's log xpEarned
       if (logDoc.exists) {
@@ -139,6 +173,100 @@ class FirestoreService {
     });
 
     return leveledUp;
+  }
+
+  /// Claim a daily quest exactly once and award its XP/stat reward.
+  Future<bool> claimDailyQuest({
+    required String uid,
+    required String questId,
+    required int xpDelta,
+    Map<String, int> statDeltas = const {},
+    required String taskDescription,
+  }) async {
+    var claimed = false;
+    final currentWeek = AppDateUtils.weekKey();
+
+    await _db.runTransaction((transaction) async {
+      final userRef = _userDoc(uid);
+      final today = AppDateUtils.todayKey();
+      final logRef = _dailyLogs(uid).doc(today);
+      final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+
+      final userDoc = await transaction.get(userRef);
+      final logDoc = await transaction.get(logRef);
+      if (!userDoc.exists || !logDoc.exists) return;
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final logData = logDoc.data() as Map<String, dynamic>? ?? {};
+      final claimedQuestIds = List<String>.from(
+        logData['claimedQuestIds'] ?? [],
+      );
+
+      if (claimedQuestIds.contains(questId)) return;
+
+      int currentXp = (userData['xp'] as num?)?.toInt() ?? 0;
+      int currentLevel = (userData['currentLevel'] as num?)?.toInt() ?? 1;
+      int xpToNext = (userData['xpToNextLevel'] as num?)?.toInt() ?? 500;
+      int weeklyXp = (userData['weeklyXp'] as num?)?.toInt() ?? 0;
+      String weeklyXpWeek = userData['weeklyXpWeek'] as String? ?? '';
+      final leaderboardOptIn = userData['leaderboardOptIn'] as bool? ?? false;
+      final stats = userData['stats'] as Map<String, dynamic>? ?? {};
+
+      currentXp += xpDelta;
+      if (weeklyXpWeek != currentWeek) {
+        weeklyXp = 0;
+        weeklyXpWeek = currentWeek;
+      }
+      weeklyXp += xpDelta;
+
+      while (currentXp >= xpToNext) {
+        currentXp -= xpToNext;
+        currentLevel++;
+        xpToNext = UserModel.xpForLevel(currentLevel);
+      }
+
+      final newClass = UserModel.classForLevel(currentLevel);
+      final updatedStats = Map<String, dynamic>.from(stats);
+      for (final entry in statDeltas.entries) {
+        final current = (updatedStats[entry.key] as num?)?.toInt() ?? 0;
+        updatedStats[entry.key] = current + entry.value;
+      }
+
+      transaction.update(userRef, {
+        'xp': currentXp,
+        'currentLevel': currentLevel,
+        'xpToNextLevel': xpToNext,
+        'currentClass': newClass,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
+        'stats': updatedStats,
+      });
+
+      if (leaderboardOptIn) {
+        transaction.set(leaderboardRef, {
+          'uid': uid,
+          'displayName': userData['displayName'] ?? '',
+          'currentLevel': currentLevel,
+          'currentClass': newClass,
+          'weeklyXp': weeklyXp,
+          'weekKey': currentWeek,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      }
+
+      claimedQuestIds.add(questId);
+      final tasks = List<String>.from(logData['completedTasks'] ?? []);
+      tasks.add(taskDescription);
+      transaction.update(logRef, {
+        'claimedQuestIds': claimedQuestIds,
+        'xpEarned': ((logData['xpEarned'] as num?)?.toInt() ?? 0) + xpDelta,
+        'completedTasks': tasks,
+      });
+
+      claimed = true;
+    });
+
+    return claimed;
   }
 
   // ─── Streak ───────────────────────────────────────────────
@@ -418,6 +546,82 @@ class FirestoreService {
       'streakDays': data['streakDays'] ?? 0,
       'currentClass': data['currentClass'] ?? 'Novice',
     };
+  }
+
+  // ─── Weekly League ────────────────────────────────────────
+
+  /// Toggle public weekly leaderboard visibility for the current user.
+  Future<void> setLeaderboardOptIn(String uid, bool enabled) async {
+    final currentWeek = AppDateUtils.weekKey();
+
+    await _db.runTransaction((transaction) async {
+      final userRef = _userDoc(uid);
+      final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+      final userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) return;
+
+      final data = userDoc.data() as Map<String, dynamic>? ?? {};
+      var weeklyXp = (data['weeklyXp'] as num?)?.toInt() ?? 0;
+      var weeklyXpWeek = data['weeklyXpWeek'] as String? ?? '';
+      if (weeklyXpWeek != currentWeek) {
+        weeklyXp = 0;
+        weeklyXpWeek = currentWeek;
+      }
+
+      transaction.update(userRef, {
+        'leaderboardOptIn': enabled,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
+      });
+
+      if (enabled) {
+        transaction.set(leaderboardRef, {
+          'uid': uid,
+          'displayName': data['displayName'] ?? '',
+          'currentLevel': data['currentLevel'] ?? 1,
+          'currentClass': data['currentClass'] ?? 'Novice',
+          'weeklyXp': weeklyXp,
+          'weekKey': currentWeek,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      } else {
+        transaction.delete(leaderboardRef);
+      }
+    });
+  }
+
+  /// Stream public entries for the current weekly league.
+  Stream<List<Map<String, dynamic>>> weeklyLeaderboardStream({
+    int limit = 50,
+    String? weekKey,
+  }) {
+    final key = weekKey ?? AppDateUtils.weekKey();
+    return _leaderboardEntries(key)
+        .orderBy('weeklyXp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snap) => snap.docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>? ?? {};
+            return {...data, 'uid': data['uid'] ?? doc.id};
+          }).toList(),
+        );
+  }
+
+  /// Query public entries for the current weekly league once.
+  Future<List<Map<String, dynamic>>> getWeeklyLeaderboard({
+    int limit = 50,
+    String? weekKey,
+  }) async {
+    final key = weekKey ?? AppDateUtils.weekKey();
+    final snap = await _leaderboardEntries(
+      key,
+    ).orderBy('weeklyXp', descending: true).limit(limit).get();
+
+    return snap.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>? ?? {};
+      return {...data, 'uid': data['uid'] ?? doc.id};
+    }).toList();
   }
 
   // ─── Sleep ────────────────────────────────────────────────

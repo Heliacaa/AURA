@@ -242,6 +242,102 @@ abstract class AppLocalizations {
   /// **'Weekly Trends'**
   String get weeklyTrends;
 
+  /// No description provided for @dailyQuests.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily Quests'**
+  String get dailyQuests;
+
+  /// No description provided for @dailyQuestProgress.
+  ///
+  /// In en, this message translates to:
+  /// **'{completed} / {total} rewards claimed'**
+  String dailyQuestProgress(int completed, int total);
+
+  /// No description provided for @dailyQuestClaim.
+  ///
+  /// In en, this message translates to:
+  /// **'Claim'**
+  String get dailyQuestClaim;
+
+  /// No description provided for @dailyQuestClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Claimed'**
+  String get dailyQuestClaimed;
+
+  /// No description provided for @dailyQuestLocked.
+  ///
+  /// In en, this message translates to:
+  /// **'Locked'**
+  String get dailyQuestLocked;
+
+  /// No description provided for @dailyQuestRewardClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'Quest reward claimed!'**
+  String get dailyQuestRewardClaimed;
+
+  /// No description provided for @dailyQuestAlreadyClaimed.
+  ///
+  /// In en, this message translates to:
+  /// **'This quest is already claimed.'**
+  String get dailyQuestAlreadyClaimed;
+
+  /// No description provided for @dailyQuestClaimFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not claim quest: {error}'**
+  String dailyQuestClaimFailed(String error);
+
+  /// No description provided for @sleepQuestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Log'**
+  String get sleepQuestTitle;
+
+  /// No description provided for @sleepQuestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Log last night\'s sleep'**
+  String get sleepQuestSubtitle;
+
+  /// No description provided for @mealQuestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Meal Log'**
+  String get mealQuestTitle;
+
+  /// No description provided for @mealQuestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan and save at least 1 meal'**
+  String get mealQuestSubtitle;
+
+  /// No description provided for @waterQuestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Water Goal'**
+  String get waterQuestTitle;
+
+  /// No description provided for @waterQuestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete your daily water goal'**
+  String get waterQuestSubtitle;
+
+  /// No description provided for @stepsQuestTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Step Goal'**
+  String get stepsQuestTitle;
+
+  /// No description provided for @stepsQuestSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Complete your daily step goal'**
+  String get stepsQuestSubtitle;
+
   /// No description provided for @sleepCard.
   ///
   /// In en, this message translates to:
@@ -631,6 +727,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Weekly XP'**
   String get weeklyXp;
+
+  /// No description provided for @weeklyLeague.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly League'**
+  String get weeklyLeague;
+
+  /// No description provided for @friendsRanking.
+  ///
+  /// In en, this message translates to:
+  /// **'Friends'**
+  String get friendsRanking;
+
+  /// No description provided for @weeklyLeagueActive.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly League active'**
+  String get weeklyLeagueActive;
+
+  /// No description provided for @weeklyLeagueInactive.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly League off'**
+  String get weeklyLeagueInactive;
+
+  /// No description provided for @weeklyLeagueActiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'You are ranked with {xp} XP this week.'**
+  String weeklyLeagueActiveSubtitle(int xp);
+
+  /// No description provided for @weeklyLeagueInactiveSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Join to appear in the weekly XP ranking.'**
+  String get weeklyLeagueInactiveSubtitle;
+
+  /// No description provided for @weeklyLeagueEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'No one is in this week\'s league yet. You can be first.'**
+  String get weeklyLeagueEmpty;
+
+  /// No description provided for @weeklyLeagueEnabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly League visibility enabled.'**
+  String get weeklyLeagueEnabled;
+
+  /// No description provided for @weeklyLeagueDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly League visibility disabled.'**
+  String get weeklyLeagueDisabled;
+
+  /// No description provided for @weeklyLeagueUpdateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update leaderboard: {error}'**
+  String weeklyLeagueUpdateFailed(String error);
 
   /// No description provided for @streak.
   ///

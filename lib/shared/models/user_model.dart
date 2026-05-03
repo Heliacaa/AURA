@@ -23,11 +23,11 @@ class UserStats {
   }
 
   Map<String, dynamic> toMap() => {
-        'strength': strength,
-        'intelligence': intelligence,
-        'charisma': charisma,
-        'vitality': vitality,
-      };
+    'strength': strength,
+    'intelligence': intelligence,
+    'charisma': charisma,
+    'vitality': vitality,
+  };
 
   UserStats copyWith({
     int? strength,
@@ -64,10 +64,10 @@ class DailyGoals {
   }
 
   Map<String, dynamic> toMap() => {
-        'steps': steps,
-        'calories': calories,
-        'waterGlasses': waterGlasses,
-      };
+    'steps': steps,
+    'calories': calories,
+    'waterGlasses': waterGlasses,
+  };
 }
 
 class UserModel {
@@ -85,6 +85,9 @@ class UserModel {
   final UserStats stats;
   final DailyGoals dailyGoals;
   final String socialEnergyLevel;
+  final bool leaderboardOptIn;
+  final int weeklyXp;
+  final String weeklyXpWeek;
   final String? fcmToken;
 
   const UserModel({
@@ -102,6 +105,9 @@ class UserModel {
     this.stats = const UserStats(),
     this.dailyGoals = const DailyGoals(),
     this.socialEnergyLevel = 'Orta',
+    this.leaderboardOptIn = false,
+    this.weeklyXp = 0,
+    this.weeklyXpWeek = '',
     this.fcmToken,
   });
 
@@ -127,26 +133,32 @@ class UserModel {
           ? DailyGoals.fromMap(data['dailyGoals'] as Map<String, dynamic>)
           : const DailyGoals(),
       socialEnergyLevel: data['socialEnergyLevel'] as String? ?? 'Orta',
+      leaderboardOptIn: data['leaderboardOptIn'] as bool? ?? false,
+      weeklyXp: (data['weeklyXp'] as num?)?.toInt() ?? 0,
+      weeklyXpWeek: data['weeklyXpWeek'] as String? ?? '',
       fcmToken: data['fcmToken'] as String?,
     );
   }
 
   Map<String, dynamic> toFirestore() => {
-        'displayName': displayName,
-        'email': email,
-        'createdAt': Timestamp.fromDate(createdAt),
-        'avatarUrl': avatarUrl,
-        'currentLevel': currentLevel,
-        'currentClass': currentClass,
-        'xp': xp,
-        'xpToNextLevel': xpToNextLevel,
-        'streakDays': streakDays,
-        'lastActiveDate': Timestamp.fromDate(lastActiveDate),
-        'stats': stats.toMap(),
-        'dailyGoals': dailyGoals.toMap(),
-        'socialEnergyLevel': socialEnergyLevel,
-        if (fcmToken != null) 'fcmToken': fcmToken,
-      };
+    'displayName': displayName,
+    'email': email,
+    'createdAt': Timestamp.fromDate(createdAt),
+    'avatarUrl': avatarUrl,
+    'currentLevel': currentLevel,
+    'currentClass': currentClass,
+    'xp': xp,
+    'xpToNextLevel': xpToNextLevel,
+    'streakDays': streakDays,
+    'lastActiveDate': Timestamp.fromDate(lastActiveDate),
+    'stats': stats.toMap(),
+    'dailyGoals': dailyGoals.toMap(),
+    'socialEnergyLevel': socialEnergyLevel,
+    'leaderboardOptIn': leaderboardOptIn,
+    'weeklyXp': weeklyXp,
+    'weeklyXpWeek': weeklyXpWeek,
+    if (fcmToken != null) 'fcmToken': fcmToken,
+  };
 
   UserModel copyWith({
     String? displayName,
@@ -160,6 +172,9 @@ class UserModel {
     UserStats? stats,
     DailyGoals? dailyGoals,
     String? socialEnergyLevel,
+    bool? leaderboardOptIn,
+    int? weeklyXp,
+    String? weeklyXpWeek,
     String? fcmToken,
   }) {
     return UserModel(
@@ -177,6 +192,9 @@ class UserModel {
       stats: stats ?? this.stats,
       dailyGoals: dailyGoals ?? this.dailyGoals,
       socialEnergyLevel: socialEnergyLevel ?? this.socialEnergyLevel,
+      leaderboardOptIn: leaderboardOptIn ?? this.leaderboardOptIn,
+      weeklyXp: weeklyXp ?? this.weeklyXp,
+      weeklyXpWeek: weeklyXpWeek ?? this.weeklyXpWeek,
       fcmToken: fcmToken ?? this.fcmToken,
     );
   }
@@ -201,11 +219,41 @@ class UserModel {
 
   /// XP thresholds for each level
   static const List<int> levelThresholds = [
-    0, 500, 1200, 2500, 5000, 10000, 18000, 28000, 40000, 55000,
-    75000, 100000, 130000, 165000, 205000, 250000, 300000, 360000,
-    430000, 510000, 600000, 700000, 810000, 930000, 1060000,
-    1200000, 1350000, 1510000, 1680000, 1860000, 2050000, 2250000,
-    2460000, 2680000, 2910000,
+    0,
+    500,
+    1200,
+    2500,
+    5000,
+    10000,
+    18000,
+    28000,
+    40000,
+    55000,
+    75000,
+    100000,
+    130000,
+    165000,
+    205000,
+    250000,
+    300000,
+    360000,
+    430000,
+    510000,
+    600000,
+    700000,
+    810000,
+    930000,
+    1060000,
+    1200000,
+    1350000,
+    1510000,
+    1680000,
+    1860000,
+    2050000,
+    2250000,
+    2460000,
+    2680000,
+    2910000,
   ];
 
   /// Get class name for a given level
@@ -221,7 +269,8 @@ class UserModel {
   static int xpForLevel(int level) {
     if (level < 0) return 0;
     if (level >= levelThresholds.length) {
-      return levelThresholds.last + (level - levelThresholds.length + 1) * 200000;
+      return levelThresholds.last +
+          (level - levelThresholds.length + 1) * 200000;
     }
     return levelThresholds[level];
   }

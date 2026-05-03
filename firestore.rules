@@ -46,6 +46,25 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // Public weekly leaderboard projection. Entries contain only public stats.
+    match /leaderboards/{weekKey}/entries/{entryId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null
+        && request.auth.uid == entryId
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'currentLevel',
+          'currentClass',
+          'weeklyXp',
+          'weekKey',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == entryId
+        && request.resource.data.weekKey == weekKey;
+      allow delete: if request.auth != null && request.auth.uid == entryId;
+    }
+
     // Deny all other access
     match /{document=**} {
       allow read, write: if false;

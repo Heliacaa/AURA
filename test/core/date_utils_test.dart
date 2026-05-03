@@ -19,17 +19,22 @@ void main() {
     });
 
     test('formatTimestamp returns HH:mm', () {
-      final result = AppDateUtils.formatTimestamp(DateTime(2024, 6, 15, 14, 30));
+      final result = AppDateUtils.formatTimestamp(
+        DateTime(2024, 6, 15, 14, 30),
+      );
       expect(result, '14:30');
+    });
+
+    test('weekKey uses Monday-start ISO week format', () {
+      expect(AppDateUtils.weekKey(DateTime(2026, 5, 3)), '2026-W18');
+      expect(AppDateUtils.weekKey(DateTime(2026, 5, 4)), '2026-W19');
+      expect(AppDateUtils.weekKey(DateTime(2024, 12, 30)), '2025-W01');
     });
 
     test('greeting returns time-appropriate greeting', () {
       final greeting = AppDateUtils.greeting();
       // Can't control time, but should return one of the valid strings
-      expect(
-        greeting,
-        anyOf('Günaydın', 'İyi günler', 'İyi akşamlar'),
-      );
+      expect(greeting, anyOf('Günaydın', 'İyi günler', 'İyi akşamlar'));
     });
 
     test('isToday returns true for today', () {

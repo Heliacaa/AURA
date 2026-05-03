@@ -91,6 +91,58 @@ class AppLocalizationsTr extends AppLocalizations {
   String get weeklyTrends => 'Haftalık Trendler';
 
   @override
+  String get dailyQuests => 'Günlük Görevler';
+
+  @override
+  String dailyQuestProgress(int completed, int total) {
+    return '$completed / $total ödül alındı';
+  }
+
+  @override
+  String get dailyQuestClaim => 'Al';
+
+  @override
+  String get dailyQuestClaimed => 'Alındı';
+
+  @override
+  String get dailyQuestLocked => 'Kilitli';
+
+  @override
+  String get dailyQuestRewardClaimed => 'Görev ödülü alındı!';
+
+  @override
+  String get dailyQuestAlreadyClaimed => 'Bu görev zaten alındı.';
+
+  @override
+  String dailyQuestClaimFailed(String error) {
+    return 'Görev alınamadı: $error';
+  }
+
+  @override
+  String get sleepQuestTitle => 'Uyku Kaydı';
+
+  @override
+  String get sleepQuestSubtitle => 'Gece uykunu kaydet';
+
+  @override
+  String get mealQuestTitle => 'Yemek Kaydı';
+
+  @override
+  String get mealQuestSubtitle => 'En az 1 öğün tarayıp kaydet';
+
+  @override
+  String get waterQuestTitle => 'Su Hedefi';
+
+  @override
+  String get waterQuestSubtitle => 'Günlük su hedefini tamamla';
+
+  @override
+  String get stepsQuestTitle => 'Adım Hedefi';
+
+  @override
+  String get stepsQuestSubtitle => 'Günlük adım hedefini tamamla';
+
+  @override
   String get sleepCard => 'Uyku';
 
   @override
@@ -311,6 +363,42 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get weeklyXp => 'Haftalık XP';
+
+  @override
+  String get weeklyLeague => 'Weekly League';
+
+  @override
+  String get friendsRanking => 'Arkadaşlar';
+
+  @override
+  String get weeklyLeagueActive => 'Weekly League aktif';
+
+  @override
+  String get weeklyLeagueInactive => 'Weekly League kapalı';
+
+  @override
+  String weeklyLeagueActiveSubtitle(int xp) {
+    return 'Bu hafta $xp XP ile sıralamadasın.';
+  }
+
+  @override
+  String get weeklyLeagueInactiveSubtitle =>
+      'Haftalık XP sıralamasında görünmek için katıl.';
+
+  @override
+  String get weeklyLeagueEmpty =>
+      'Bu haftanın liginde henüz kimse yok. İlk katılan sen olabilirsin.';
+
+  @override
+  String get weeklyLeagueEnabled => 'Weekly League görünürlüğü açıldı.';
+
+  @override
+  String get weeklyLeagueDisabled => 'Weekly League görünürlüğü kapatıldı.';
+
+  @override
+  String weeklyLeagueUpdateFailed(String error) {
+    return 'Sıralama güncellenemedi: $error';
+  }
 
   @override
   String get streak => 'Seri';

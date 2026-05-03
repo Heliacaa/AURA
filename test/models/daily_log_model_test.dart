@@ -19,6 +19,7 @@ void main() {
       expect(log.mealsLogged, 0);
       expect(log.sleepHours, 0);
       expect(log.sleepQuality, '');
+      expect(log.claimedQuestIds, isEmpty);
     });
 
     test('empty factory creates today log', () {
@@ -36,7 +37,11 @@ void main() {
         waterGlasses: 4,
       );
 
-      final updated = log.copyWith(stepCount: 10000, sleepHours: 7.5, sleepQuality: 'good');
+      final updated = log.copyWith(
+        stepCount: 10000,
+        sleepHours: 7.5,
+        sleepQuality: 'good',
+      );
       expect(updated.stepCount, 10000);
       expect(updated.waterGlasses, 4); // unchanged
       expect(updated.sleepHours, 7.5);
@@ -59,6 +64,7 @@ void main() {
         mealsLogged: 3,
         sleepHours: 7.0,
         sleepQuality: 'good',
+        claimedQuestIds: ['sleep_log', 'meal_log'],
       );
 
       final map = log.toFirestore();
@@ -73,6 +79,7 @@ void main() {
       expect(map['mealsLogged'], 3);
       expect(map['sleepHours'], 7.0);
       expect(map['sleepQuality'], 'good');
+      expect(map['claimedQuestIds'], ['sleep_log', 'meal_log']);
     });
 
     test('copyWith preserves all fields when no args', () {

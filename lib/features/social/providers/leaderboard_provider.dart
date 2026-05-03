@@ -6,12 +6,28 @@ import 'friends_provider.dart';
 /// Leaderboard sort mode
 enum LeaderboardSort { weeklyXp, streak, score }
 
-final leaderboardSortProvider =
-    StateProvider<LeaderboardSort>((ref) => LeaderboardSort.weeklyXp);
+/// Leaderboard surface mode
+enum LeaderboardMode { weeklyLeague, friends }
+
+final leaderboardModeProvider = StateProvider<LeaderboardMode>(
+  (ref) => LeaderboardMode.weeklyLeague,
+);
+
+final leaderboardSortProvider = StateProvider<LeaderboardSort>(
+  (ref) => LeaderboardSort.weeklyXp,
+);
+
+/// Public weekly league entries for opted-in users.
+final weeklyLeaderboardProvider = StreamProvider<List<Map<String, dynamic>>>((
+  ref,
+) {
+  return FirestoreService.instance.weeklyLeaderboardStream();
+});
 
 /// Leaderboard data: list of friend stats
-final leaderboardProvider =
-    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+final leaderboardProvider = FutureProvider<List<Map<String, dynamic>>>((
+  ref,
+) async {
   final friends = ref.watch(friendsProvider).valueOrNull ?? [];
   final currentUser = ref.watch(currentUserProvider).valueOrNull;
   final sort = ref.watch(leaderboardSortProvider);
@@ -33,30 +49,34 @@ final leaderboardProvider =
 
   // Add friends
   for (final friend in friends) {
-    final stats =
-        await FirestoreService.instance.getUserPublicStats(friend.friendUid);
+    final stats = await FirestoreService.instance.getUserPublicStats(
+      friend.friendUid,
+    );
     if (stats != null) {
-      entries.add({
-        ...stats,
-        'uid': friend.friendUid,
-        'isMe': false,
-      });
+      entries.add({...stats, 'uid': friend.friendUid, 'isMe': false});
     }
   }
 
   // Sort based on selected mode
   switch (sort) {
     case LeaderboardSort.weeklyXp:
-      entries.sort((a, b) =>
-          ((b['xp'] as num?) ?? 0).compareTo((a['xp'] as num?) ?? 0));
+      entries.sort(
+        (a, b) => ((b['xp'] as num?) ?? 0).compareTo((a['xp'] as num?) ?? 0),
+      );
       break;
     case LeaderboardSort.streak:
-      entries.sort((a, b) => ((b['streakDays'] as num?) ?? 0)
-          .compareTo((a['streakDays'] as num?) ?? 0));
+      entries.sort(
+        (a, b) => ((b['streakDays'] as num?) ?? 0).compareTo(
+          (a['streakDays'] as num?) ?? 0,
+        ),
+      );
       break;
     case LeaderboardSort.score:
-      entries.sort((a, b) => ((b['currentLevel'] as num?) ?? 0)
-          .compareTo((a['currentLevel'] as num?) ?? 0));
+      entries.sort(
+        (a, b) => ((b['currentLevel'] as num?) ?? 0).compareTo(
+          (a['currentLevel'] as num?) ?? 0,
+        ),
+      );
       break;
   }
 
