@@ -1,19 +1,19 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../core/config/gemini_config.dart';
 import '../shared/models/memory_model.dart';
 
 class MemoryService {
   MemoryService._();
   static final instance = MemoryService._();
 
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get _apiKey => GeminiConfig.apiKey;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
   GenerativeModel? _model;
   GenerativeModel get model {
-    _model ??= GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+    _model ??= GenerativeModel(model: GeminiConfig.textModel, apiKey: _apiKey);
     return _model!;
   }
 
@@ -25,7 +25,8 @@ class MemoryService {
     if (_apiKey.isEmpty) return [];
 
     try {
-      final prompt = '''
+      final prompt =
+          '''
 Analyze the following user message and extract actionable facts or upcoming events.
 Return a JSON array of objects with: {"content": "string", "category": "exam|health|social|work|goal", "relevantDate": "YYYY-MM-DD or null"}.
 If no actionable facts found, return an empty array [].
@@ -53,8 +54,8 @@ User message: "$userMessage"
                   content: item['content'] as String,
                   category: item['category'] as String? ?? 'general',
                   extractedAt: DateTime.now(),
-                  relevantDate: item['relevantDate'] != null 
-                      ? DateTime.tryParse(item['relevantDate'].toString()) 
+                  relevantDate: item['relevantDate'] != null
+                      ? DateTime.tryParse(item['relevantDate'].toString())
                       : null,
                 );
               }
@@ -78,12 +79,13 @@ User message: "$userMessage"
   }
 
   /// Get recent memories for context enrichment
-  Future<List<MemoryModel>> getRelevantMemories(String uid,
-      {int limit = 10}) async {
-    final snap = await _memories(uid)
-        .orderBy('extractedAt', descending: true)
-        .limit(limit)
-        .get();
+  Future<List<MemoryModel>> getRelevantMemories(
+    String uid, {
+    int limit = 10,
+  }) async {
+    final snap = await _memories(
+      uid,
+    ).orderBy('extractedAt', descending: true).limit(limit).get();
     return snap.docs.map((d) => MemoryModel.fromFirestore(d)).toList();
   }
 
@@ -98,9 +100,9 @@ User message: "$userMessage"
   /// Delete memories older than 30 days
   Future<void> cleanOldMemories(String uid) async {
     final cutoff = DateTime.now().subtract(const Duration(days: 30));
-    final snap = await _memories(uid)
-        .where('extractedAt', isLessThan: Timestamp.fromDate(cutoff))
-        .get();
+    final snap = await _memories(
+      uid,
+    ).where('extractedAt', isLessThan: Timestamp.fromDate(cutoff)).get();
     final batch = _db.batch();
     for (final doc in snap.docs) {
       batch.delete(doc.reference);

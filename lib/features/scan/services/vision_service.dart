@@ -1,21 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../../../core/config/gemini_config.dart';
 import '../../../shared/models/meal_model.dart';
 
 class VisionService {
   VisionService._();
   static final instance = VisionService._();
 
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get _apiKey => GeminiConfig.apiKey;
 
   GenerativeModel? _model;
 
   GenerativeModel get model {
     _model ??= GenerativeModel(
-      model: 'gemini-2.5-flash',
+      model: GeminiConfig.visionModel,
       apiKey: _apiKey,
     );
     return _model!;
@@ -32,7 +31,8 @@ class VisionService {
   }) async {
     if (_apiKey.isEmpty) {
       throw Exception(
-          'API anahtarı yapılandırılmamış. --dart-define=GEMINI_API_KEY=YOUR_KEY');
+        'API anahtarı yapılandırılmamış. .env dosyasına GEMINI_API_KEY ekle veya --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştır.',
+      );
     }
 
     final imageBytes = await imageFile.readAsBytes();

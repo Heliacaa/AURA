@@ -38,9 +38,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       final foundUser = await FirestoreService.instance.findUserByEmail(email);
       if (foundUser == null) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Kullanıcı bulunamadı')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Kullanıcı bulunamadı')));
         }
         return;
       }
@@ -71,9 +71,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Hata: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Hata: $e')));
       }
     } finally {
       setState(() => _searching = false);
@@ -131,7 +131,9 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                               width: 20,
                               height: 20,
                               child: CircularProgressIndicator(
-                                  color: Colors.white, strokeWidth: 2),
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
                             ),
                           )
                         : const Icon(Icons.person_add, color: Colors.white),
@@ -144,7 +146,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
             // Friend requests
             requestsAsync.when(
               loading: () => const SizedBox.shrink(),
-              error: (_, __) => const SizedBox.shrink(),
+              error: (_, _) => const SizedBox.shrink(),
               data: (requests) {
                 if (requests.isEmpty) return const SizedBox.shrink();
                 return Column(
@@ -159,66 +161,83 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    ...requests.map((req) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: AppTheme.cardDecoration(
-                              borderColor: AppTheme.warningOrange),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                backgroundColor: AppTheme.primaryAccent,
-                                radius: 18,
-                                child: Text(
-                                  req.friendName.isNotEmpty
-                                      ? req.friendName[0].toUpperCase()
-                                      : '?',
-                                  style: GoogleFonts.poppins(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600),
+                    ...requests.map(
+                      (req) => Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: AppTheme.cardDecoration(
+                          borderColor: AppTheme.warningOrange,
+                        ),
+                        child: Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: AppTheme.primaryAccent,
+                              radius: 18,
+                              child: Text(
+                                req.friendName.isNotEmpty
+                                    ? req.friendName[0].toUpperCase()
+                                    : '?',
+                                style: GoogleFonts.poppins(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(req.friendName,
-                                        style: GoogleFonts.poppins(
-                                            color: AppTheme.textWhite,
-                                            fontWeight: FontWeight.w600)),
-                                    Text(req.friendEmail,
-                                        style: GoogleFonts.poppins(
-                                            color: AppTheme.textSecondary,
-                                            fontSize: 12)),
-                                  ],
-                                ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    req.friendName,
+                                    style: GoogleFonts.poppins(
+                                      color: AppTheme.textWhite,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    req.friendEmail,
+                                    style: GoogleFonts.poppins(
+                                      color: AppTheme.textSecondary,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.check_circle,
-                                    color: AppTheme.secondaryAccent),
-                                onPressed: () async {
-                                  if (authUser != null) {
-                                    await FirestoreService.instance
-                                        .acceptFriendRequest(
-                                            authUser.uid, req.friendUid);
-                                  }
-                                },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.check_circle,
+                                color: AppTheme.secondaryAccent,
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.cancel,
-                                    color: AppTheme.statRed),
-                                onPressed: () async {
-                                  if (authUser != null) {
-                                    await FirestoreService.instance
-                                        .removeFriend(
-                                            authUser.uid, req.friendUid);
-                                  }
-                                },
+                              onPressed: () async {
+                                if (authUser != null) {
+                                  await FirestoreService.instance
+                                      .acceptFriendRequest(
+                                        authUser.uid,
+                                        req.friendUid,
+                                      );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.cancel,
+                                color: AppTheme.statRed,
                               ),
-                            ],
-                          ),
-                        )),
+                              onPressed: () async {
+                                if (authUser != null) {
+                                  await FirestoreService.instance.removeFriend(
+                                    authUser.uid,
+                                    req.friendUid,
+                                  );
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 16),
                   ],
                 );
@@ -238,11 +257,12 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
             friendsAsync.when(
               loading: () => const Center(
-                child:
-                    CircularProgressIndicator(color: AppTheme.primaryAccent),
+                child: CircularProgressIndicator(color: AppTheme.primaryAccent),
               ),
-              error: (e, _) => Text('Hata: $e',
-                  style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+              error: (e, _) => Text(
+                'Hata: $e',
+                style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+              ),
               data: (friends) {
                 if (friends.isEmpty) {
                   return Container(
@@ -250,13 +270,16 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: AppTheme.cardBackground,
-                      borderRadius:
-                          BorderRadius.circular(AppTheme.cardBorderRadius),
+                      borderRadius: BorderRadius.circular(
+                        AppTheme.cardBorderRadius,
+                      ),
                     ),
                     child: Text(
                       'Henüz arkadaş yok. Birilerini ekle!',
                       style: GoogleFonts.poppins(
-                          color: AppTheme.textSecondary, fontSize: 14),
+                        color: AppTheme.textSecondary,
+                        fontSize: 14,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -264,12 +287,14 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
                 return Column(
                   children: friends
-                      .map((f) => AuraCard(
-                            emoji: '👤',
-                            title: f.friendName,
-                            subtitle: f.friendEmail,
-                            borderColor: AppTheme.primaryAccent,
-                          ))
+                      .map(
+                        (f) => AuraCard(
+                          emoji: '👤',
+                          title: f.friendName,
+                          subtitle: f.friendEmail,
+                          borderColor: AppTheme.primaryAccent,
+                        ),
+                      )
                       .toList(),
                 );
               },

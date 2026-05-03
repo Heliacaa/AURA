@@ -1,5 +1,5 @@
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import '../../../core/config/gemini_config.dart';
 import '../../../shared/models/chat_message_model.dart';
 import '../../../shared/models/memory_model.dart';
 
@@ -7,15 +7,12 @@ class GeminiService {
   GeminiService._();
   static final instance = GeminiService._();
 
-  static String get _apiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get _apiKey => GeminiConfig.apiKey;
 
   GenerativeModel? _model;
 
   GenerativeModel get model {
-    _model ??= GenerativeModel(
-      model: 'gemini-2.5-flash',
-      apiKey: _apiKey,
-    );
+    _model ??= GenerativeModel(model: GeminiConfig.textModel, apiKey: _apiKey);
     return _model!;
   }
 
@@ -60,12 +57,12 @@ Eğer kullanıcının yaklaşan etkinlikleri veya hedefleri varsa, proaktif olar
     required String systemPrompt,
   }) async {
     if (_apiKey.isEmpty) {
-      return 'API anahtarı yapılandırılmamış. Uygulamayı --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştırın.';
+      return 'API anahtarı yapılandırılmamış. .env dosyasına GEMINI_API_KEY ekle veya --dart-define=GEMINI_API_KEY=YOUR_KEY ile çalıştır.';
     }
 
     // Create a new model instance for each request to inject the dynamic system prompt
     final dynamicModel = GenerativeModel(
-      model: 'gemini-2.5-pro',
+      model: GeminiConfig.textModel,
       apiKey: _apiKey,
       systemInstruction: Content.system(systemPrompt),
     );
@@ -106,7 +103,30 @@ Eğer kullanıcının yaklaşan etkinlikleri veya hedefleri varsa, proaktif olar
       }).toList(),
     );
 
-    final response = await chat.sendMessage(Content.text(userMessage));
-    return response.text ?? 'Yanıt alınamadı.';
+    try {
+      final response = await chat.sendMessage(Content.text(userMessage));
+      return response.text ?? 'Yanıt alınamadı.';
+    } catch (e) {
+      return _friendlyError(e);
+    }
+  }
+
+  String _friendlyError(Object error) {
+    final message = error.toString().toLowerCase();
+
+    if (message.contains('quota') ||
+        message.contains('rate limit') ||
+        message.contains('429')) {
+      return 'Üzgünüm, ücretsiz Gemini kotası şu an dolu veya geçici olarak sınırlı görünüyor. Biraz sonra tekrar deneyebiliriz.';
+    }
+
+    if (message.contains('api key') ||
+        message.contains('apikey') ||
+        message.contains('permission') ||
+        message.contains('unauthorized')) {
+      return 'Gemini API anahtarı doğrulanamadı. .env içindeki GEMINI_API_KEY değerini ve Google AI Studio projesinin aktif olduğunu kontrol et.';
+    }
+
+    return 'Üzgünüm, şu an bağlantı kuramıyorum. Lütfen biraz sonra tekrar dene.';
   }
 }

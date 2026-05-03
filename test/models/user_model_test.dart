@@ -31,7 +31,12 @@ void main() {
     });
 
     test('toMap round-trips', () {
-      const stats = UserStats(strength: 5, intelligence: 10, charisma: 15, vitality: 20);
+      const stats = UserStats(
+        strength: 5,
+        intelligence: 10,
+        charisma: 15,
+        vitality: 20,
+      );
       final map = stats.toMap();
       final restored = UserStats.fromMap(map);
       expect(restored.strength, 5);
@@ -88,8 +93,17 @@ void main() {
         xp: 5000,
         xpToNextLevel: 10000,
         streakDays: 7,
-        stats: const UserStats(strength: 10, intelligence: 20, charisma: 5, vitality: 15),
-        dailyGoals: const DailyGoals(steps: 12000, calories: 2200, waterGlasses: 10),
+        stats: const UserStats(
+          strength: 10,
+          intelligence: 20,
+          charisma: 5,
+          vitality: 15,
+        ),
+        dailyGoals: const DailyGoals(
+          steps: 12000,
+          calories: 2200,
+          waterGlasses: 10,
+        ),
         socialEnergyLevel: 'Yüksek',
         fcmToken: 'token123',
       );
@@ -153,9 +167,6 @@ void main() {
     });
 
     test('toFirestore omits fcmToken when null', () {
-      final noToken = user.copyWith(fcmToken: null);
-      // copyWith doesn't actually set fcmToken to null if current is non-null
-      // Let's create a new model without token
       final model = UserModel(
         uid: 'u1',
         displayName: 'No Token',

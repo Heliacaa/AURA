@@ -45,12 +45,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions _ios = FirebaseOptions(
-    apiKey: 'YOUR-IOS-API-KEY',
-    appId: 'YOUR-IOS-APP-ID',
-    messagingSenderId: 'YOUR-MESSAGING-SENDER-ID',
-    projectId: 'YOUR-PROJECT-ID',
-    storageBucket: 'YOUR-STORAGE-BUCKET',
-    iosBundleId: 'com.example.aura',
+    apiKey: 'AIzaSyDz7ZHfz49iiYmmMb3OSlbHCDhUTTNFMgs',
+    appId: '1:494092935168:ios:a3e30b6893ffc83e13f8e5',
+    messagingSenderId: '494092935168',
+    projectId: 'aura-d27e0',
+    storageBucket: 'aura-d27e0.firebasestorage.app',
+    iosBundleId: 'com.aura.aura',
   );
 
   static const FirebaseOptions _web = FirebaseOptions(

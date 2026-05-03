@@ -527,7 +527,7 @@ abstract class AppLocalizations {
   /// No description provided for @apiKeyMissing.
   ///
   /// In en, this message translates to:
-  /// **'API key not configured. Run with --dart-define=GEMINI_API_KEY=YOUR_KEY'**
+  /// **'API key not configured. Add GEMINI_API_KEY to .env or run with --dart-define=GEMINI_API_KEY=YOUR_KEY'**
   String get apiKeyMissing;
 
   /// No description provided for @homePage.

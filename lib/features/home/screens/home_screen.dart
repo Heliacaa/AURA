@@ -107,7 +107,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.cloud_off, color: AppTheme.textSecondary, size: 48),
+                  const Icon(
+                    Icons.cloud_off,
+                    color: AppTheme.textSecondary,
+                    size: 48,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Sunucuya bağlanılamadı',
@@ -120,7 +124,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 8),
                   Text(
                     'Firebase Firestore veritabanının oluşturulduğundan emin olun.',
-                    style: GoogleFonts.poppins(color: AppTheme.textSecondary, fontSize: 13),
+                    style: GoogleFonts.poppins(
+                      color: AppTheme.textSecondary,
+                      fontSize: 13,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -129,9 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           ),
           data: (user) {
             if (user == null) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             final log = logAsync.valueOrNull;
@@ -179,8 +184,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                               CustomPaint(
                                 size: const Size(180, 180),
                                 painter: CircularProgressPainter(
-                                  progress:
-                                      progress * _progressAnimation.value,
+                                  progress: progress * _progressAnimation.value,
                                   progressColor: AppTheme.primaryAccent,
                                   strokeWidth: 14,
                                 ),
@@ -225,7 +229,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   const SizedBox(height: 8),
                   weeklyLogs.when(
                     loading: () => const SizedBox(height: 180),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                     data: (logs) => WeeklyChart(logs: logs),
                   ),
                   const SizedBox(height: 16),
@@ -233,7 +237,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   // Macro summary card
                   todayMeals.when(
                     loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
+                    error: (_, _) => const SizedBox.shrink(),
                     data: (meals) => meals.isNotEmpty
                         ? MacroSummaryCard(
                             meals: meals,
@@ -255,7 +259,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     emoji: '👟',
                     title: '${log?.stepCount ?? 0} Adım',
                     subtitle: _stepSubtitle(
-                        log?.stepCount ?? 0, user.dailyGoals.steps),
+                      log?.stepCount ?? 0,
+                      user.dailyGoals.steps,
+                    ),
                     borderColor: AppTheme.primaryAccent,
                     onTap: () => _showStepDialog(context, log?.stepCount ?? 0),
                   ),
@@ -280,8 +286,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     emoji: '💧',
                     title:
                         '${log?.waterGlasses ?? 0} / ${user.dailyGoals.waterGlasses} Bardak Su',
-                    subtitle: (log?.waterGlasses ?? 0) >=
-                            user.dailyGoals.waterGlasses
+                    subtitle:
+                        (log?.waterGlasses ?? 0) >= user.dailyGoals.waterGlasses
                         ? 'Hedefe ulaştın! 🎉'
                         : 'Daha fazla su iç!',
                     borderColor: AppTheme.secondaryAccent,
@@ -323,8 +329,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardBackground,
-        title: Text('Adım Güncelle',
-            style: GoogleFonts.poppins(color: AppTheme.textWhite)),
+        title: Text(
+          'Adım Güncelle',
+          style: GoogleFonts.poppins(color: AppTheme.textWhite),
+        ),
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
@@ -334,16 +342,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('İptal',
-                style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
               final val = int.tryParse(controller.text);
               if (val != null) Navigator.pop(ctx, val);
             },
-            child: Text('Kaydet',
-                style: GoogleFonts.poppins(color: AppTheme.primaryAccent)),
+            child: Text(
+              'Kaydet',
+              style: GoogleFonts.poppins(color: AppTheme.primaryAccent),
+            ),
           ),
         ],
       ),
@@ -353,11 +365,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final uid = ref.read(authStateProvider).valueOrNull?.uid;
       if (uid == null) return;
       final today = AppDateUtils.todayKey();
-      await FirestoreService.instance.updateDailyLog(
-        uid,
-        today,
-        {'stepCount': result},
-      );
+      await FirestoreService.instance.updateDailyLog(uid, today, {
+        'stepCount': result,
+      });
 
       // Check if step goal reached
       final user = ref.read(currentUserProvider).valueOrNull;
@@ -376,11 +386,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final uid = ref.read(authStateProvider).valueOrNull?.uid;
     if (uid == null) return;
     final today = AppDateUtils.todayKey();
-    await FirestoreService.instance.updateDailyLog(
-      uid,
-      today,
-      {'waterGlasses': current + 1},
-    );
+    await FirestoreService.instance.updateDailyLog(uid, today, {
+      'waterGlasses': current + 1,
+    });
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user != null && current + 1 >= user.dailyGoals.waterGlasses) {
@@ -402,18 +410,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppTheme.cardBackground,
-          title: Text('Log Sleep',
-              style: GoogleFonts.poppins(color: AppTheme.textWhite)),
+          title: Text(
+            'Log Sleep',
+            style: GoogleFonts.poppins(color: AppTheme.textWhite),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: hoursController,
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 style: GoogleFonts.poppins(color: AppTheme.textWhite),
-                decoration:
-                    AppTheme.inputDecoration(hintText: 'Hours slept (e.g. 7.5)'),
+                decoration: AppTheme.inputDecoration(
+                  hintText: 'Hours slept (e.g. 7.5)',
+                ),
               ),
               const SizedBox(height: 16),
               Row(
@@ -424,7 +436,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     onTap: () => setDialogState(() => selectedQuality = q),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppTheme.statBlue
@@ -449,8 +463,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: Text('Cancel',
-                  style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+              ),
             ),
             TextButton(
               onPressed: () {
@@ -462,8 +478,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   });
                 }
               },
-              child: Text('Save',
-                  style: GoogleFonts.poppins(color: AppTheme.primaryAccent)),
+              child: Text(
+                'Save',
+                style: GoogleFonts.poppins(color: AppTheme.primaryAccent),
+              ),
             ),
           ],
         ),

@@ -259,7 +259,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get apiKeyMissing =>
-      'API key not configured. Run with --dart-define=GEMINI_API_KEY=YOUR_KEY';
+      'API key not configured. Add GEMINI_API_KEY to .env or run with --dart-define=GEMINI_API_KEY=YOUR_KEY';
 
   @override
   String get homePage => 'Home';
