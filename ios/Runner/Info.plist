@@ -26,6 +26,16 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>AURA uses your camera to scan food for nutrition analysis.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>AURA reads your health data to provide personalized coaching.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>AURA writes workout data to Apple Health.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>AURA uses motion data to track your daily steps.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AURA accesses your photos to analyze food images.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -66,15 +76,5 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<key>NSMotionUsageDescription</key>
-	<string>AURA uses motion data to track your daily steps.</string>
-	<key>NSHealthShareUsageDescription</key>
-	<string>AURA reads your health data to provide personalized coaching.</string>
-	<key>NSHealthUpdateUsageDescription</key>
-	<string>AURA writes workout data to Apple Health.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>AURA uses your camera to scan food for nutrition analysis.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>AURA accesses your photos to analyze food images.</string>
 </dict>
 </plist>

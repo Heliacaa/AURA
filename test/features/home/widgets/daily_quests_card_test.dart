@@ -37,4 +37,29 @@ void main() {
     expect(find.text('Al'), findsOneWidget);
     expect(find.text('Kilitli'), findsNWidgets(2));
   });
+
+  testWidgets('synced sleep and steps are ready but unclaimed', (tester) async {
+    final log = DailyLogModel(
+      date: '2026-05-03',
+      timestamp: DateTime(2026, 5, 3),
+      sleepHours: 7.5,
+      stepCount: 12000,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DailyQuestsCard(
+            uid: 'uid1',
+            log: log,
+            goals: const DailyGoals(steps: 10000, waterGlasses: 8),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Alındı'), findsNothing);
+    expect(find.text('Al'), findsNWidgets(2));
+    expect(find.text('Kilitli'), findsNWidgets(2));
+  });
 }

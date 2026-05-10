@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,6 +28,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _progressController;
   late Animation<double> _progressAnimation;
+  StreamSubscription<int>? _stepSyncSubscription;
+  DateTime? _lastStepWriteAt;
+  int? _lastWrittenSteps;
 
   @override
   void initState() {
@@ -70,10 +75,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (!mounted) return;
       await FirestoreService.instance.updateStreak(authUser.uid);
       if (!mounted) return;
-      // Start real-time step counting
-      final granted = await HealthService.instance.requestPermissions();
-      if (granted && mounted) {
-        HealthService.instance.startListening();
+      await HealthService.instance.syncTodayHealthLog(authUser.uid);
+      if (!mounted) return;
+
+      final motionGranted = await HealthService.instance.requestPermissions();
+      if (motionGranted && mounted) {
+        final syncedSteps = HealthService.instance.todaySteps;
+        final logSteps = ref.read(todayLogProvider).valueOrNull?.stepCount ?? 0;
+        HealthService.instance.startLiveStepTracking(
+          seedDailySteps: syncedSteps > 0 ? syncedSteps : logSteps,
+        );
+        _startStepSync(authUser.uid);
       }
     } catch (e) {
       debugPrint('HomeScreen _initializeDay error: $e');
@@ -83,6 +95,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _stepSyncSubscription?.cancel();
+    HealthService.instance.stopListening();
     _progressController.dispose();
     super.dispose();
   }
@@ -331,8 +345,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  void _startStepSync(String uid) {
+    _stepSyncSubscription?.cancel();
+    _lastStepWriteAt = null;
+    _lastWrittenSteps = null;
+    _stepSyncSubscription = HealthService.instance.stepStream.listen(
+      (steps) => _persistLiveSteps(uid, steps),
+      onError: (error) => debugPrint('Step sync stream error: $error'),
+    );
+  }
+
+  Future<void> _persistLiveSteps(String uid, int steps) async {
+    if (steps <= 0) return;
+
+    final now = DateTime.now();
+    final previous = _lastWrittenSteps;
+    if (previous != null && steps <= previous) return;
+
+    final hasMeaningfulDelta = previous == null || steps - previous >= 25;
+    final hasWaited =
+        _lastStepWriteAt == null ||
+        now.difference(_lastStepWriteAt!) >= const Duration(minutes: 1);
+
+    if (!hasMeaningfulDelta && !hasWaited) return;
+
+    _lastWrittenSteps = steps;
+    _lastStepWriteAt = now;
+
+    try {
+      await FirestoreService.instance.updateDailyLog(
+        uid,
+        AppDateUtils.todayKey(),
+        {'stepCount': steps},
+      );
+    } catch (e) {
+      debugPrint('Live step Firestore sync error: $e');
+    }
+  }
+
   Future<void> _showStepDialog(BuildContext context, int currentSteps) async {
-    final controller = TextEditingController();
+    final controller = TextEditingController(
+      text: currentSteps > 0 ? '$currentSteps' : '',
+    );
     final result = await showDialog<int>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -376,17 +430,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       await FirestoreService.instance.updateDailyLog(uid, today, {
         'stepCount': result,
       });
-
-      // Check if step goal reached
-      final user = ref.read(currentUserProvider).valueOrNull;
-      if (user != null && result >= user.dailyGoals.steps) {
-        await FirestoreService.instance.updateUserXP(
-          uid: uid,
-          xpDelta: 50,
-          statDeltas: {'strength': 5},
-          taskDescription: '+5 Güç (Adım hedefine ulaşıldı)',
-        );
-      }
     }
   }
 
@@ -413,6 +456,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final hoursController = TextEditingController();
     String selectedQuality = 'good';
 
+    final currentSleepHours =
+        ref.read(todayLogProvider).valueOrNull?.sleepHours ?? 0;
+    if (currentSleepHours > 0) {
+      hoursController.text = currentSleepHours.toStringAsFixed(1);
+    } else {
+      try {
+        final syncedHours = await HealthService.instance
+            .fetchLastNightSleepHours(DateTime.now());
+        if (!mounted) return;
+        if (syncedHours != null && syncedHours > 0) {
+          hoursController.text = syncedHours.toStringAsFixed(1);
+        }
+      } catch (e) {
+        debugPrint('Sleep prefill error: $e');
+      }
+    }
+
+    if (!context.mounted) return;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (ctx) => StatefulBuilder(
