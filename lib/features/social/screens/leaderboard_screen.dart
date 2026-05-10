@@ -8,6 +8,8 @@ import '../../../services/firestore_service.dart';
 import '../../../shared/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../providers/leaderboard_provider.dart';
+import '../widgets/scoreboard_podium.dart';
+import '../widgets/sticky_user_rank_card.dart';
 
 class LeaderboardScreen extends ConsumerWidget {
   const LeaderboardScreen({super.key});
@@ -20,20 +22,6 @@ class LeaderboardScreen extends ConsumerWidget {
     return SafeArea(
       child: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                'Sıralama',
-                style: GoogleFonts.poppins(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.textWhite,
-                ),
-              ),
-            ),
-          ),
           const SizedBox(height: 16),
           _buildModeTabs(ref, mode),
           const SizedBox(height: 16),
@@ -161,20 +149,26 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
     final enabled = currentUser.leaderboardOptIn;
     final title = enabled ? 'Weekly League aktif' : 'Weekly League kapalı';
     final subtitle = enabled
-        ? 'Bu hafta ${currentUser.weeklyXp} XP ile sıralamadasın.'
-        : 'Haftalık XP sıralamasında görünmek için katıl.';
+        ? '${AppDateUtils.weekKey()} · ${currentUser.weeklyXp} XP'
+        : 'Sıralamada görünmek için katıl.';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Container(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: AppTheme.cardDecoration(
           borderColor: enabled
-              ? AppTheme.secondaryAccent
-              : AppTheme.warningOrange,
+              ? AppTheme.secondaryAccent.withAlpha(100)
+              : AppTheme.warningOrange.withAlpha(100),
         ),
         child: Row(
           children: [
+            Icon(
+              enabled ? Icons.visibility : Icons.visibility_off,
+              color: enabled ? AppTheme.secondaryAccent : AppTheme.warningOrange,
+              size: 20,
+            ),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,16 +177,15 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
                     title,
                     style: GoogleFonts.poppins(
                       color: AppTheme.textWhite,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
                   Text(
-                    '${AppDateUtils.weekKey()} · $subtitle',
+                    subtitle,
                     style: GoogleFonts.poppins(
                       color: AppTheme.textSecondary,
-                      fontSize: 12,
+                      fontSize: 11,
                     ),
                   ),
                 ],
@@ -206,7 +199,7 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
                 try {
                   await FirestoreService.instance.setLeaderboardOptIn(
                     currentUser.uid,
-                    value,
+                     value,
                   );
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -266,22 +259,60 @@ class _WeeklyLeagueList extends ConsumerWidget {
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            final rank = index + 1;
-            final isMe = entry['uid'] == currentUid;
-            return _LeaderboardEntryTile(
-              rank: rank,
-              isMe: isMe,
-              displayName: entry['displayName'] as String? ?? '',
-              subtitle:
-                  'Lv.${entry['currentLevel'] ?? 1} ${entry['currentClass'] ?? 'Novice'}',
-              value: '${entry['weeklyXp'] ?? 0} XP',
-            );
-          },
+        final topEntries = entries.take(3).toList();
+        final restEntries = entries.skip(3).toList();
+
+        int myRank = -1;
+        Map<String, dynamic>? myEntry;
+        int xpToNext = 0;
+
+        for (int i = 0; i < entries.length; i++) {
+          if (entries[i]['uid'] == currentUid) {
+            myRank = i + 1;
+            myEntry = entries[i];
+            if (i > 0) {
+              int myXp = myEntry['weeklyXp'] as int? ?? 0;
+              int prevXp = entries[i - 1]['weeklyXp'] as int? ?? 0;
+              xpToNext = prevXp - myXp;
+            }
+            break;
+          }
+        }
+
+        return Column(
+          children: [
+            ScoreboardPodium(
+              topEntries: topEntries,
+              currentUid: currentUid,
+              getValue: (e) => '${e['weeklyXp'] ?? 0} XP',
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: restEntries.length,
+                itemBuilder: (context, index) {
+                  final entry = restEntries[index];
+                  final rank = index + 4;
+                  final isMe = entry['uid'] == currentUid;
+                  return _LeaderboardEntryTile(
+                    rank: rank,
+                    isMe: isMe,
+                    displayName: entry['displayName'] as String? ?? '',
+                    subtitle:
+                        'Lv.${entry['currentLevel'] ?? 1} ${entry['currentClass'] ?? 'Novice'}',
+                    value: '${entry['weeklyXp'] ?? 0} XP',
+                  );
+                },
+              ),
+            ),
+            if (myEntry != null && myRank > 3)
+              StickyUserRankCard(
+                userEntry: myEntry,
+                rank: myRank,
+                value: '${myEntry['weeklyXp'] ?? 0} XP',
+                xpToNext: xpToNext,
+              ),
+          ],
         );
       },
     );
@@ -314,21 +345,60 @@ class _FriendsLeaderboardList extends ConsumerWidget {
           );
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          itemCount: entries.length,
-          itemBuilder: (context, index) {
-            final entry = entries[index];
-            final rank = index + 1;
-            final isMe = entry['isMe'] as bool? ?? false;
-            return _LeaderboardEntryTile(
-              rank: rank,
-              isMe: isMe,
-              displayName: entry['displayName'] as String? ?? '',
-              subtitle: 'Lv.${entry['currentLevel']} ${entry['currentClass']}',
-              value: _sortValue(entry, sortMode),
-            );
-          },
+        final topEntries = entries.take(3).toList();
+        final restEntries = entries.skip(3).toList();
+
+        int myRank = -1;
+        Map<String, dynamic>? myEntry;
+        int xpToNext = 0;
+
+        for (int i = 0; i < entries.length; i++) {
+          final isMe = entries[i]['isMe'] as bool? ?? false;
+          if (isMe) {
+            myRank = i + 1;
+            myEntry = entries[i];
+            if (i > 0 && sortMode == LeaderboardSort.weeklyXp) {
+              int myXp = myEntry['xp'] as int? ?? 0;
+              int prevXp = entries[i - 1]['xp'] as int? ?? 0;
+              xpToNext = prevXp - myXp;
+            }
+            break;
+          }
+        }
+
+        return Column(
+          children: [
+            ScoreboardPodium(
+              topEntries: topEntries,
+              currentUid: null,
+              getValue: (e) => _sortValue(e, sortMode),
+            ),
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                itemCount: restEntries.length,
+                itemBuilder: (context, index) {
+                  final entry = restEntries[index];
+                  final rank = index + 4;
+                  final isMe = entry['isMe'] as bool? ?? false;
+                  return _LeaderboardEntryTile(
+                    rank: rank,
+                    isMe: isMe,
+                    displayName: entry['displayName'] as String? ?? '',
+                    subtitle: 'Lv.${entry['currentLevel']} ${entry['currentClass']}',
+                    value: _sortValue(entry, sortMode),
+                  );
+                },
+              ),
+            ),
+            if (myEntry != null && myRank > 3)
+              StickyUserRankCard(
+                userEntry: myEntry,
+                rank: myRank,
+                value: _sortValue(myEntry, sortMode),
+                xpToNext: xpToNext,
+              ),
+          ],
         );
       },
     );
