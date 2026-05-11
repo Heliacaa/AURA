@@ -46,11 +46,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions _ios = FirebaseOptions(
     apiKey: 'AIzaSyDz7ZHfz49iiYmmMb3OSlbHCDhUTTNFMgs',
-    appId: '1:494092935168:ios:a3e30b6893ffc83e13f8e5',
+    appId: '1:494092935168:ios:e7db1370569b71d413f8e5',
     messagingSenderId: '494092935168',
     projectId: 'aura-d27e0',
     storageBucket: 'aura-d27e0.firebasestorage.app',
-    iosBundleId: 'com.aura.aura',
+    iosBundleId: 'com.teamauraaa.aura',
   );
 
   static const FirebaseOptions _web = FirebaseOptions(
