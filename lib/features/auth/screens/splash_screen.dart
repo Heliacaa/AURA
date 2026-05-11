@@ -25,9 +25,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       duration: const Duration(milliseconds: 1500),
     )..repeat(reverse: true);
 
-    _glowAnimation = Tween<double>(begin: 30, end: 80).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _glowAnimation = Tween<double>(
+      begin: 30,
+      end: 80,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     // Navigate after 2 seconds based on auth state
     Future.delayed(const Duration(seconds: 2), () {

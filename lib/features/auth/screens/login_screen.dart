@@ -30,7 +30,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     setState(() => _loading = true);
     try {
-      await ref.read(authServiceProvider).login(
+      await ref
+          .read(authServiceProvider)
+          .login(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -55,6 +57,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Google girişi başarısız: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _appleSignIn() async {
+    setState(() => _loading = true);
+    try {
+      await ref.read(authServiceProvider).signInWithApple();
+      if (mounted) context.go('/home');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Apple girişi başarısız: ${e.toString()}')),
         );
       }
     } finally {
@@ -172,9 +190,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 // Divider
                 Row(
                   children: [
-                    Expanded(
-                      child: Divider(color: Colors.white.withAlpha(30)),
-                    ),
+                    Expanded(child: Divider(color: Colors.white.withAlpha(30))),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
@@ -185,9 +201,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    Expanded(
-                      child: Divider(color: Colors.white.withAlpha(30)),
-                    ),
+                    Expanded(child: Divider(color: Colors.white.withAlpha(30))),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -200,15 +214,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     decoration: BoxDecoration(
                       color: AppTheme.cardBackground,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withAlpha(20),
-                      ),
+                      border: Border.all(color: Colors.white.withAlpha(20)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.g_mobiledata_rounded,
-                            color: Colors.white, size: 28),
+                        const Icon(
+                          Icons.g_mobiledata_rounded,
+                          color: Colors.white,
+                          size: 28,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Google ile Giriş',
@@ -216,6 +231,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
                             color: AppTheme.textWhite,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Apple sign in
+                GestureDetector(
+                  onTap: _loading ? null : _appleSignIn,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: AppTheme.textWhite,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withAlpha(20)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.apple, color: Colors.black, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Apple ile Giriş',
+                          style: GoogleFonts.poppins(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
                           ),
                         ),
                       ],

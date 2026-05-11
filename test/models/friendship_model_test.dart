@@ -34,6 +34,7 @@ void main() {
       expect(updated.friendName, 'Bob');
       expect(updated.friendEmail, 'bob@test.com');
       expect(updated.status, 'accepted');
+      expect(updated.direction, 'incoming');
     });
 
     test('toFirestore serializes', () {
@@ -49,6 +50,21 @@ void main() {
       expect(map['friendName'], 'Charlie');
       expect(map['friendEmail'], 'charlie@test.com');
       expect(map['status'], 'accepted');
+      expect(map['direction'], 'incoming');
+    });
+
+    test('direction helpers parse outgoing requests', () {
+      final outgoing = FriendshipModel(
+        friendUid: 'uid4',
+        friendName: 'Dana',
+        friendEmail: 'dana@test.com',
+        status: 'pending',
+        direction: 'outgoing',
+        createdAt: DateTime(2024, 4, 1),
+      );
+
+      expect(outgoing.isOutgoing, isTrue);
+      expect(outgoing.isIncoming, isFalse);
     });
   });
 }

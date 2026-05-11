@@ -42,7 +42,9 @@ class _SocialScreenState extends State<SocialScreen>
                 labelColor: AppTheme.textWhite,
                 unselectedLabelColor: AppTheme.textSecondary,
                 labelStyle: GoogleFonts.poppins(
-                    fontSize: 14, fontWeight: FontWeight.w600),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
                 tabs: const [
                   Tab(text: 'Sıralama'),
                   Tab(text: 'Arkadaşlar'),
@@ -52,10 +54,7 @@ class _SocialScreenState extends State<SocialScreen>
             Expanded(
               child: TabBarView(
                 controller: _tabController,
-                children: const [
-                  LeaderboardScreen(),
-                  FriendsScreen(),
-                ],
+                children: const [LeaderboardScreen(), FriendsScreen()],
               ),
             ),
           ],

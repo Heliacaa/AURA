@@ -119,9 +119,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Yemek kaydedildi! 🎉')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Yemek kaydedildi! 🎉')));
       }
 
       // Reset state
@@ -167,10 +167,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 height: 220,
                 decoration: BoxDecoration(
                   color: AppTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.cardBorderRadius,
+                  ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.cardBorderRadius,
+                  ),
                   child: Stack(
                     children: [
                       if (image != null)
@@ -184,8 +188,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('🍽️',
-                                  style: TextStyle(fontSize: 48)),
+                              const Text('🍽️', style: TextStyle(fontSize: 48)),
                               const SizedBox(height: 8),
                               Text(
                                 'Yemek fotoğrafı çekmek için dokun',
@@ -247,8 +250,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.camera_alt_rounded,
-                                color: Colors.white, size: 20),
+                            const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Fotoğraf Çek',
@@ -281,8 +287,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.photo_library_rounded,
-                                color: AppTheme.textSecondary, size: 20),
+                            const Icon(
+                              Icons.photo_library_rounded,
+                              color: AppTheme.textSecondary,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Galeriden Seç',
@@ -308,7 +317,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 child: Column(
                   children: [
                     const CircularProgressIndicator(
-                        color: AppTheme.secondaryAccent),
+                      color: AppTheme.secondaryAccent,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Yemek analiz ediliyor...',
@@ -345,26 +355,29 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 borderColor: AppTheme.secondaryAccent,
               ),
               // Remaining budget indicator
-              Builder(builder: (context) {
-                final user = ref.watch(currentUserProvider).valueOrNull;
-                final todayMeals =
-                    ref.watch(todayMealsProvider).valueOrNull ?? [];
-                int consumed = 0;
-                for (final m in todayMeals) {
-                  consumed += m.calories;
-                }
-                final goal = user?.dailyGoals.calories ?? 2000;
-                final remaining = goal - consumed - result.calories;
-                final isOver = remaining < 0;
-                return AuraCard(
-                  emoji: isOver ? '⚠️' : '📊',
-                  title: isOver
-                      ? 'Bütçeyi ${-remaining} kcal aştın!'
-                      : 'Kalan: $remaining kcal',
-                  borderColor:
-                      isOver ? AppTheme.statRed : AppTheme.secondaryAccent,
-                );
-              }),
+              Builder(
+                builder: (context) {
+                  final user = ref.watch(currentUserProvider).valueOrNull;
+                  final todayMeals =
+                      ref.watch(todayMealsProvider).valueOrNull ?? [];
+                  int consumed = 0;
+                  for (final m in todayMeals) {
+                    consumed += m.calories;
+                  }
+                  final goal = user?.dailyGoals.calories ?? 2000;
+                  final remaining = goal - consumed - result.calories;
+                  final isOver = remaining < 0;
+                  return AuraCard(
+                    emoji: isOver ? '⚠️' : '📊',
+                    title: isOver
+                        ? 'Bütçeyi ${-remaining} kcal aştın!'
+                        : 'Kalan: $remaining kcal',
+                    borderColor: isOver
+                        ? AppTheme.statRed
+                        : AppTheme.secondaryAccent,
+                  );
+                },
+              ),
               AuraCard(
                 emoji: '📊',
                 title:

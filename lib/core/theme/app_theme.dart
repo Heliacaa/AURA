@@ -28,10 +28,7 @@ class AppTheme {
       color: cardBackground,
       borderRadius: BorderRadius.circular(cardBorderRadius),
       border: Border(
-        left: BorderSide(
-          color: borderColor,
-          width: cardLeftBorderWidth,
-        ),
+        left: BorderSide(color: borderColor, width: cardLeftBorderWidth),
       ),
     );
   }
@@ -60,10 +57,7 @@ class AppTheme {
   }) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: GoogleFonts.poppins(
-        color: textSecondary,
-        fontSize: 14,
-      ),
+      hintStyle: GoogleFonts.poppins(color: textSecondary, fontSize: 14),
       prefixIcon: prefixIcon != null
           ? Icon(prefixIcon, color: textSecondary, size: 20)
           : null,
@@ -91,46 +85,46 @@ class AppTheme {
 
   // Text styles
   static TextStyle get headingLarge => GoogleFonts.poppins(
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        color: textWhite,
-      );
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: textWhite,
+  );
 
   static TextStyle get headingMedium => GoogleFonts.poppins(
-        fontSize: 24,
-        fontWeight: FontWeight.w700,
-        color: textWhite,
-      );
+    fontSize: 24,
+    fontWeight: FontWeight.w700,
+    color: textWhite,
+  );
 
   static TextStyle get headingSmall => GoogleFonts.poppins(
-        fontSize: 20,
-        fontWeight: FontWeight.w700,
-        color: textWhite,
-      );
+    fontSize: 20,
+    fontWeight: FontWeight.w700,
+    color: textWhite,
+  );
 
   static TextStyle get bodyLarge => GoogleFonts.poppins(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: textWhite,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w400,
+    color: textWhite,
+  );
 
   static TextStyle get bodyMedium => GoogleFonts.poppins(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: textWhite,
-      );
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    color: textWhite,
+  );
 
   static TextStyle get bodySmall => GoogleFonts.poppins(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-        color: textSecondary,
-      );
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    color: textSecondary,
+  );
 
   static TextStyle get labelBold => GoogleFonts.poppins(
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
-        color: textWhite,
-      );
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+    color: textWhite,
+  );
 
   static ThemeData get darkTheme {
     return ThemeData(
@@ -141,9 +135,7 @@ class AppTheme {
         primary: primaryAccent,
         secondary: secondaryAccent,
       ),
-      textTheme: GoogleFonts.poppinsTextTheme(
-        ThemeData.dark().textTheme,
-      ),
+      textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
       appBarTheme: AppBarTheme(
         backgroundColor: background,
         elevation: 0,

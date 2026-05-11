@@ -5,6 +5,7 @@ import '../shared/models/meal_model.dart';
 import '../shared/models/chat_message_model.dart';
 import '../shared/models/achievement_model.dart';
 import '../shared/models/friendship_model.dart';
+import '../shared/models/public_profile_model.dart';
 import '../core/utils/date_utils.dart';
 
 class FirestoreService {
@@ -35,6 +36,9 @@ class FirestoreService {
   CollectionReference _friends(String uid) =>
       _userDoc(uid).collection('friends');
 
+  DocumentReference _publicProfileDoc(String uid) =>
+      _db.collection('publicProfiles').doc(uid);
+
   CollectionReference _leaderboardEntries(String weekKey) =>
       _db.collection('leaderboards').doc(weekKey).collection('entries');
 
@@ -48,15 +52,23 @@ class FirestoreService {
     required String uid,
     required String displayName,
     required String email,
+    String avatarUrl = '',
   }) async {
     final user = UserModel(
       uid: uid,
       displayName: displayName,
       email: email,
+      avatarUrl: avatarUrl,
       createdAt: DateTime.now(),
       lastActiveDate: DateTime.now(),
     );
-    await _userDoc(uid).set(user.toFirestore());
+    final batch = _db.batch();
+    batch.set(_userDoc(uid), user.toFirestore());
+    batch.set(
+      _publicProfileDoc(uid),
+      _publicProfileData(uid, user.toFirestore()),
+    );
+    await batch.commit();
   }
 
   /// Ensure user document exists — create if missing
@@ -64,11 +76,36 @@ class FirestoreService {
     required String uid,
     required String displayName,
     required String email,
+    String avatarUrl = '',
   }) async {
     final doc = await _userDoc(uid).get();
     if (!doc.exists) {
-      await createUserDoc(uid: uid, displayName: displayName, email: email);
+      await createUserDoc(
+        uid: uid,
+        displayName: displayName,
+        email: email,
+        avatarUrl: avatarUrl,
+      );
+      return;
     }
+
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final updates = <String, dynamic>{};
+    if ((data['displayName'] as String? ?? '').isEmpty &&
+        displayName.isNotEmpty) {
+      updates['displayName'] = displayName;
+    }
+    if ((data['email'] as String? ?? '').isEmpty && email.isNotEmpty) {
+      updates['email'] = email;
+    }
+    if ((data['avatarUrl'] as String? ?? '').isEmpty && avatarUrl.isNotEmpty) {
+      updates['avatarUrl'] = avatarUrl;
+    }
+
+    if (updates.isNotEmpty) {
+      await _userDoc(uid).update(updates);
+    }
+    await _upsertPublicProfile(uid, {...data, ...updates});
   }
 
   /// Stream user data
@@ -82,6 +119,102 @@ class FirestoreService {
   /// Update user fields
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     await _userDoc(uid).update(data);
+  }
+
+  /// Update editable account/profile fields and keep public projections fresh.
+  Future<void> updateUserProfile({
+    required String uid,
+    String? displayName,
+    String? avatarUrl,
+    DailyGoals? dailyGoals,
+    String? socialEnergyLevel,
+    bool? leaderboardOptIn,
+  }) async {
+    final currentWeek = AppDateUtils.weekKey();
+
+    await _db.runTransaction((transaction) async {
+      final userRef = _userDoc(uid);
+      final publicRef = _publicProfileDoc(uid);
+      final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+      final userDoc = await transaction.get(userRef);
+      if (!userDoc.exists) return;
+
+      final currentData = userDoc.data() as Map<String, dynamic>? ?? {};
+      final updates = <String, dynamic>{};
+      if (displayName != null) updates['displayName'] = displayName;
+      if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
+      if (dailyGoals != null) updates['dailyGoals'] = dailyGoals.toMap();
+      if (socialEnergyLevel != null) {
+        updates['socialEnergyLevel'] = socialEnergyLevel;
+      }
+      if (leaderboardOptIn != null) {
+        updates['leaderboardOptIn'] = leaderboardOptIn;
+      }
+
+      if (updates.isEmpty) return;
+
+      final effectiveData = {...currentData, ...updates};
+      var weeklyXp = (effectiveData['weeklyXp'] as num?)?.toInt() ?? 0;
+      var weeklyXpWeek = effectiveData['weeklyXpWeek'] as String? ?? '';
+      if (weeklyXpWeek != currentWeek) {
+        weeklyXp = 0;
+        weeklyXpWeek = currentWeek;
+        updates['weeklyXp'] = weeklyXp;
+        updates['weeklyXpWeek'] = weeklyXpWeek;
+        effectiveData['weeklyXp'] = weeklyXp;
+        effectiveData['weeklyXpWeek'] = weeklyXpWeek;
+      }
+
+      transaction.update(userRef, updates);
+      transaction.set(
+        publicRef,
+        _publicProfileData(uid, effectiveData),
+        SetOptions(merge: true),
+      );
+
+      final enabled = effectiveData['leaderboardOptIn'] as bool? ?? false;
+      if (enabled) {
+        transaction.set(leaderboardRef, {
+          'uid': uid,
+          'displayName': effectiveData['displayName'] ?? '',
+          'currentLevel': effectiveData['currentLevel'] ?? 1,
+          'currentClass': effectiveData['currentClass'] ?? 'Novice',
+          'weeklyXp': weeklyXp,
+          'weekKey': currentWeek,
+          'updatedAt': Timestamp.fromDate(DateTime.now()),
+        });
+      } else if (leaderboardOptIn == false) {
+        transaction.delete(leaderboardRef);
+      }
+    });
+  }
+
+  Map<String, dynamic> _publicProfileData(
+    String uid,
+    Map<String, dynamic> data,
+  ) {
+    final email = data['email'] as String? ?? '';
+    return PublicProfileModel(
+      uid: uid,
+      displayName: data['displayName'] as String? ?? '',
+      email: email,
+      emailLowercase: email.trim().toLowerCase(),
+      avatarUrl: data['avatarUrl'] as String? ?? '',
+      currentLevel: (data['currentLevel'] as num?)?.toInt() ?? 1,
+      currentClass: data['currentClass'] as String? ?? 'Novice',
+      xp: (data['xp'] as num?)?.toInt() ?? 0,
+      streakDays: (data['streakDays'] as num?)?.toInt() ?? 0,
+      updatedAt: DateTime.now(),
+    ).toFirestore();
+  }
+
+  Future<void> _upsertPublicProfile(
+    String uid,
+    Map<String, dynamic> data,
+  ) async {
+    await _publicProfileDoc(
+      uid,
+    ).set(_publicProfileData(uid, data), SetOptions(merge: true));
   }
 
   /// Atomic XP and stat update using transaction
@@ -99,6 +232,7 @@ class FirestoreService {
       final today = AppDateUtils.todayKey();
       final logRef = _dailyLogs(uid).doc(today);
       final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+      final publicRef = _publicProfileDoc(uid);
 
       final userDoc = await transaction.get(userRef);
       final logDoc = await transaction.get(logRef);
@@ -146,6 +280,17 @@ class FirestoreService {
         'weeklyXpWeek': weeklyXpWeek,
         'stats': updatedStats,
       });
+      transaction.set(
+        publicRef,
+        _publicProfileData(uid, {
+          ...data,
+          'xp': currentXp,
+          'currentLevel': currentLevel,
+          'currentClass': newClass,
+          'streakDays': data['streakDays'] ?? 0,
+        }),
+        SetOptions(merge: true),
+      );
 
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
@@ -191,6 +336,7 @@ class FirestoreService {
       final today = AppDateUtils.todayKey();
       final logRef = _dailyLogs(uid).doc(today);
       final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+      final publicRef = _publicProfileDoc(uid);
 
       final userDoc = await transaction.get(userRef);
       final logDoc = await transaction.get(logRef);
@@ -241,6 +387,17 @@ class FirestoreService {
         'weeklyXpWeek': weeklyXpWeek,
         'stats': updatedStats,
       });
+      transaction.set(
+        publicRef,
+        _publicProfileData(uid, {
+          ...userData,
+          'xp': currentXp,
+          'currentLevel': currentLevel,
+          'currentClass': newClass,
+          'streakDays': userData['streakDays'] ?? 0,
+        }),
+        SetOptions(merge: true),
+      );
 
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
@@ -295,6 +452,11 @@ class FirestoreService {
         'streakDays': newStreak,
         'lastActiveDate': Timestamp.fromDate(now),
       });
+      transaction.set(
+        _publicProfileDoc(uid),
+        _publicProfileData(uid, {...data, 'streakDays': newStreak}),
+        SetOptions(merge: true),
+      );
     });
   }
 
@@ -463,42 +625,48 @@ class FirestoreService {
     required String toEmail,
   }) async {
     final now = DateTime.now();
+    final batch = _db.batch();
     // Add to sender's friends list
-    await _friends(fromUid)
-        .doc(toUid)
-        .set(
-          FriendshipModel(
-            friendUid: toUid,
-            friendName: toName,
-            friendEmail: toEmail,
-            status: 'pending',
-            createdAt: now,
-          ).toFirestore(),
-        );
+    batch.set(
+      _friends(fromUid).doc(toUid),
+      FriendshipModel(
+        friendUid: toUid,
+        friendName: toName,
+        friendEmail: toEmail,
+        status: 'pending',
+        direction: 'outgoing',
+        createdAt: now,
+      ).toFirestore(),
+    );
     // Add to receiver's friends list
-    await _friends(toUid)
-        .doc(fromUid)
-        .set(
-          FriendshipModel(
-            friendUid: fromUid,
-            friendName: fromName,
-            friendEmail: fromEmail,
-            status: 'pending',
-            createdAt: now,
-          ).toFirestore(),
-        );
+    batch.set(
+      _friends(toUid).doc(fromUid),
+      FriendshipModel(
+        friendUid: fromUid,
+        friendName: fromName,
+        friendEmail: fromEmail,
+        status: 'pending',
+        direction: 'incoming',
+        createdAt: now,
+      ).toFirestore(),
+    );
+    await batch.commit();
   }
 
   /// Accept friend request
   Future<void> acceptFriendRequest(String uid, String friendUid) async {
-    await _friends(uid).doc(friendUid).update({'status': 'accepted'});
-    await _friends(friendUid).doc(uid).update({'status': 'accepted'});
+    final batch = _db.batch();
+    batch.update(_friends(uid).doc(friendUid), {'status': 'accepted'});
+    batch.update(_friends(friendUid).doc(uid), {'status': 'accepted'});
+    await batch.commit();
   }
 
   /// Decline / remove friend
   Future<void> removeFriend(String uid, String friendUid) async {
-    await _friends(uid).doc(friendUid).delete();
-    await _friends(friendUid).doc(uid).delete();
+    final batch = _db.batch();
+    batch.delete(_friends(uid).doc(friendUid));
+    batch.delete(_friends(friendUid).doc(uid));
+    await batch.commit();
   }
 
   /// Stream accepted friends
@@ -516,6 +684,7 @@ class FirestoreService {
   Stream<List<FriendshipModel>> friendRequestsStream(String uid) {
     return _friends(uid)
         .where('status', isEqualTo: 'pending')
+        .where('direction', isEqualTo: 'incoming')
         .snapshots()
         .map(
           (snap) =>
@@ -523,28 +692,29 @@ class FirestoreService {
         );
   }
 
-  /// Search user by email
-  Future<UserModel?> findUserByEmail(String email) async {
+  /// Search public profiles by email.
+  Future<PublicProfileModel?> findPublicProfileByEmail(String email) async {
     final snap = await _db
-        .collection('users')
-        .where('email', isEqualTo: email)
+        .collection('publicProfiles')
+        .where('emailLowercase', isEqualTo: email.trim().toLowerCase())
         .limit(1)
         .get();
     if (snap.docs.isEmpty) return null;
-    return UserModel.fromFirestore(snap.docs.first);
+    return PublicProfileModel.fromFirestore(snap.docs.first);
   }
 
   /// Get a user's public stats for leaderboard
   Future<Map<String, dynamic>?> getUserPublicStats(String uid) async {
-    final doc = await _userDoc(uid).get();
+    final doc = await _publicProfileDoc(uid).get();
     if (!doc.exists) return null;
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final profile = PublicProfileModel.fromFirestore(doc);
     return {
-      'displayName': data['displayName'] ?? '',
-      'currentLevel': data['currentLevel'] ?? 1,
-      'xp': data['xp'] ?? 0,
-      'streakDays': data['streakDays'] ?? 0,
-      'currentClass': data['currentClass'] ?? 'Novice',
+      'displayName': profile.displayName,
+      'avatarUrl': profile.avatarUrl,
+      'currentLevel': profile.currentLevel,
+      'xp': profile.xp,
+      'streakDays': profile.streakDays,
+      'currentClass': profile.currentClass,
     };
   }
 
@@ -557,6 +727,7 @@ class FirestoreService {
     await _db.runTransaction((transaction) async {
       final userRef = _userDoc(uid);
       final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+      final publicRef = _publicProfileDoc(uid);
       final userDoc = await transaction.get(userRef);
       if (!userDoc.exists) return;
 
@@ -573,6 +744,11 @@ class FirestoreService {
         'weeklyXp': weeklyXp,
         'weeklyXpWeek': weeklyXpWeek,
       });
+      transaction.set(
+        publicRef,
+        _publicProfileData(uid, data),
+        SetOptions(merge: true),
+      );
 
       if (enabled) {
         transaction.set(leaderboardRef, {

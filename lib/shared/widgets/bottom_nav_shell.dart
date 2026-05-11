@@ -6,10 +6,7 @@ import '../../core/theme/app_theme.dart';
 class BottomNavShell extends StatelessWidget {
   final StatefulNavigationShell navigationShell;
 
-  const BottomNavShell({
-    super.key,
-    required this.navigationShell,
-  });
+  const BottomNavShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {

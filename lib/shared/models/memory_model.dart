@@ -31,13 +31,12 @@ class MemoryModel {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'content': content,
-        'category': category,
-        'extractedAt': Timestamp.fromDate(extractedAt),
-        if (relevantDate != null)
-          'relevantDate': Timestamp.fromDate(relevantDate!),
-        if (source != null) 'source': source,
-      };
+    'content': content,
+    'category': category,
+    'extractedAt': Timestamp.fromDate(extractedAt),
+    if (relevantDate != null) 'relevantDate': Timestamp.fromDate(relevantDate!),
+    if (source != null) 'source': source,
+  };
 
   factory MemoryModel.fromJson(Map<String, dynamic> json) {
     DateTime? relevant;

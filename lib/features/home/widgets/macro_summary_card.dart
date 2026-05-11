@@ -36,7 +36,8 @@ class MacroSummaryCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: AppTheme.cardDecoration(
-          borderColor: isOver ? AppTheme.statRed : AppTheme.secondaryAccent),
+        borderColor: isOver ? AppTheme.statRed : AppTheme.secondaryAccent,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -61,7 +62,8 @@ class MacroSummaryCard extends StatelessWidget {
               value: progress.toDouble(),
               backgroundColor: Colors.white.withAlpha(15),
               valueColor: AlwaysStoppedAnimation(
-                  isOver ? AppTheme.statRed : AppTheme.secondaryAccent),
+                isOver ? AppTheme.statRed : AppTheme.secondaryAccent,
+              ),
               minHeight: 6,
             ),
           ),

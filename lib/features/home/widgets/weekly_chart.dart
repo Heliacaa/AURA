@@ -41,21 +41,33 @@ class WeeklyChart extends StatelessWidget {
             children: [
               _legendDot(AppTheme.primaryAccent),
               const SizedBox(width: 4),
-              Text('Score',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.textSecondary, fontSize: 11)),
+              Text(
+                'Score',
+                style: GoogleFonts.poppins(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
               const SizedBox(width: 12),
               _legendDot(AppTheme.secondaryAccent),
               const SizedBox(width: 4),
-              Text('Steps (k)',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.textSecondary, fontSize: 11)),
+              Text(
+                'Steps (k)',
+                style: GoogleFonts.poppins(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
               const SizedBox(width: 12),
               _legendDot(AppTheme.statBlue),
               const SizedBox(width: 4),
-              Text('Sleep (h)',
-                  style: GoogleFonts.poppins(
-                      color: AppTheme.textSecondary, fontSize: 11)),
+              Text(
+                'Sleep (h)',
+                style: GoogleFonts.poppins(
+                  color: AppTheme.textSecondary,
+                  fontSize: 11,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -67,18 +79,19 @@ class WeeklyChart extends StatelessWidget {
                   show: true,
                   drawVerticalLine: false,
                   horizontalInterval: 25,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: Colors.white.withAlpha(10),
-                    strokeWidth: 1,
-                  ),
+                  getDrawingHorizontalLine: (value) =>
+                      FlLine(color: Colors.white.withAlpha(10), strokeWidth: 1),
                 ),
                 titlesData: FlTitlesData(
                   leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
                   bottomTitles: AxisTitles(
                     sideTitles: SideTitles(
                       showTitles: true,
@@ -89,10 +102,16 @@ class WeeklyChart extends StatelessWidget {
                           return const SizedBox.shrink();
                         }
                         final date = logs[idx].date;
-                        final day = date.length >= 10 ? date.substring(8, 10) : '';
-                        return Text(day,
-                            style: GoogleFonts.poppins(
-                                color: AppTheme.textSecondary, fontSize: 10));
+                        final day = date.length >= 10
+                            ? date.substring(8, 10)
+                            : '';
+                        return Text(
+                          day,
+                          style: GoogleFonts.poppins(
+                            color: AppTheme.textSecondary,
+                            fontSize: 10,
+                          ),
+                        );
                       },
                     ),
                   ),
@@ -139,18 +158,24 @@ class WeeklyChart extends StatelessWidget {
   }
 
   List<FlSpot> _scoreSpots() {
-    return List.generate(logs.length,
-        (i) => FlSpot(i.toDouble(), logs[i].dailyScore.toDouble()));
+    return List.generate(
+      logs.length,
+      (i) => FlSpot(i.toDouble(), logs[i].dailyScore.toDouble()),
+    );
   }
 
   List<FlSpot> _stepSpots() {
-    return List.generate(logs.length,
-        (i) => FlSpot(i.toDouble(), (logs[i].stepCount / 100).clamp(0, 100)));
+    return List.generate(
+      logs.length,
+      (i) => FlSpot(i.toDouble(), (logs[i].stepCount / 100).clamp(0, 100)),
+    );
   }
 
   List<FlSpot> _sleepSpots() {
-    return List.generate(logs.length,
-        (i) => FlSpot(i.toDouble(), (logs[i].sleepHours * 10).clamp(0, 100)));
+    return List.generate(
+      logs.length,
+      (i) => FlSpot(i.toDouble(), (logs[i].sleepHours * 10).clamp(0, 100)),
+    );
   }
 
   Widget _legendDot(Color color) {

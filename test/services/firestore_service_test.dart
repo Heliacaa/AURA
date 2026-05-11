@@ -5,12 +5,15 @@ import 'package:aura/shared/models/user_model.dart';
 import 'package:aura/shared/models/meal_model.dart';
 import 'package:aura/shared/models/chat_message_model.dart';
 import 'package:aura/shared/models/friendship_model.dart';
+import 'package:aura/services/firestore_service.dart';
 
 void main() {
   late FakeFirebaseFirestore fakeFirestore;
+  late FirestoreService service;
 
   setUp(() {
     fakeFirestore = FakeFirebaseFirestore();
+    service = FirestoreService(firestore: fakeFirestore);
   });
 
   group('User operations', () {
@@ -110,12 +113,176 @@ void main() {
           .get();
       expect(snap.docs, isEmpty);
     });
+
+    test('ensureUserDoc creates private user and public profile', () async {
+      await service.ensureUserDoc(
+        uid: 'uid-google',
+        displayName: 'Google User',
+        email: 'Google@Test.com',
+        avatarUrl: 'https://example.com/avatar.png',
+      );
+
+      final userDoc = await fakeFirestore
+          .collection('users')
+          .doc('uid-google')
+          .get();
+      final publicDoc = await fakeFirestore
+          .collection('publicProfiles')
+          .doc('uid-google')
+          .get();
+
+      expect(userDoc.exists, isTrue);
+      expect(userDoc.data()!['avatarUrl'], 'https://example.com/avatar.png');
+      expect(publicDoc.exists, isTrue);
+      expect(publicDoc.data()!['displayName'], 'Google User');
+      expect(publicDoc.data()!['emailLowercase'], 'google@test.com');
+      expect(publicDoc.data()!.containsKey('dailyGoals'), isFalse);
+    });
+
+    test('ensureUserDoc preserves existing profile names', () async {
+      await service.createUserDoc(
+        uid: 'uid-existing',
+        displayName: 'Chosen Name',
+        email: 'old@test.com',
+      );
+
+      await service.ensureUserDoc(
+        uid: 'uid-existing',
+        displayName: 'Provider Name',
+        email: 'new@test.com',
+        avatarUrl: 'https://example.com/provider.png',
+      );
+
+      final userDoc = await fakeFirestore
+          .collection('users')
+          .doc('uid-existing')
+          .get();
+      final data = userDoc.data()!;
+      expect(data['displayName'], 'Chosen Name');
+      expect(data['email'], 'old@test.com');
+      expect(data['avatarUrl'], 'https://example.com/provider.png');
+    });
+
+    test(
+      'updateUserProfile syncs private, public, and leaderboard data',
+      () async {
+        await service.createUserDoc(
+          uid: 'uid-profile',
+          displayName: 'Old Name',
+          email: 'profile@test.com',
+        );
+        await service.updateUserProfile(
+          uid: 'uid-profile',
+          displayName: 'New Name',
+          dailyGoals: const DailyGoals(
+            steps: 9000,
+            calories: 1800,
+            waterGlasses: 9,
+          ),
+          socialEnergyLevel: 'Yüksek',
+          leaderboardOptIn: true,
+        );
+
+        final userDoc = await fakeFirestore
+            .collection('users')
+            .doc('uid-profile')
+            .get();
+        final publicDoc = await fakeFirestore
+            .collection('publicProfiles')
+            .doc('uid-profile')
+            .get();
+        final leaderboard = await service.getWeeklyLeaderboard();
+
+        expect(userDoc.data()!['displayName'], 'New Name');
+        expect(userDoc.data()!['dailyGoals']['steps'], 9000);
+        expect(userDoc.data()!['socialEnergyLevel'], 'Yüksek');
+        expect(publicDoc.data()!['displayName'], 'New Name');
+        expect(publicDoc.data()!.containsKey('dailyGoals'), isFalse);
+        expect(leaderboard.single['displayName'], 'New Name');
+      },
+    );
+
+    test('findPublicProfileByEmail searches the public projection', () async {
+      await service.createUserDoc(
+        uid: 'uid-public',
+        displayName: 'Public User',
+        email: 'Public@Test.com',
+      );
+
+      final found = await service.findPublicProfileByEmail('public@test.com');
+
+      expect(found, isNotNull);
+      expect(found!.uid, 'uid-public');
+      expect(found.displayName, 'Public User');
+    });
+  });
+
+  group('Friends operations', () {
+    test('sendFriendRequest creates reciprocal directed documents', () async {
+      await service.sendFriendRequest(
+        fromUid: 'alice',
+        fromName: 'Alice',
+        fromEmail: 'alice@test.com',
+        toUid: 'bob',
+        toName: 'Bob',
+        toEmail: 'bob@test.com',
+      );
+
+      final aliceDoc = await fakeFirestore
+          .collection('users')
+          .doc('alice')
+          .collection('friends')
+          .doc('bob')
+          .get();
+      final bobDoc = await fakeFirestore
+          .collection('users')
+          .doc('bob')
+          .collection('friends')
+          .doc('alice')
+          .get();
+
+      expect(aliceDoc.data()!['status'], 'pending');
+      expect(aliceDoc.data()!['direction'], 'outgoing');
+      expect(bobDoc.data()!['status'], 'pending');
+      expect(bobDoc.data()!['direction'], 'incoming');
+    });
+
+    test('acceptFriendRequest updates both sides', () async {
+      await service.sendFriendRequest(
+        fromUid: 'alice',
+        fromName: 'Alice',
+        fromEmail: 'alice@test.com',
+        toUid: 'bob',
+        toName: 'Bob',
+        toEmail: 'bob@test.com',
+      );
+
+      await service.acceptFriendRequest('bob', 'alice');
+
+      final aliceDoc = await fakeFirestore
+          .collection('users')
+          .doc('alice')
+          .collection('friends')
+          .doc('bob')
+          .get();
+      final bobDoc = await fakeFirestore
+          .collection('users')
+          .doc('bob')
+          .collection('friends')
+          .doc('alice')
+          .get();
+
+      expect(aliceDoc.data()!['status'], 'accepted');
+      expect(bobDoc.data()!['status'], 'accepted');
+    });
   });
 
   group('Meals operations', () {
     test('save and retrieve meal', () async {
-      final mealsRef =
-          fakeFirestore.collection('users').doc('uid1').collection('meals');
+      final mealsRef = fakeFirestore
+          .collection('users')
+          .doc('uid1')
+          .collection('meals');
       final meal = MealModel(
         timestamp: DateTime(2024, 6, 15, 12, 30),
         detectedFood: 'Pizza',
@@ -138,26 +305,32 @@ void main() {
     });
 
     test('multiple meals accumulate', () async {
-      final mealsRef =
-          fakeFirestore.collection('users').doc('uid1').collection('meals');
+      final mealsRef = fakeFirestore
+          .collection('users')
+          .doc('uid1')
+          .collection('meals');
 
-      await mealsRef.add(MealModel(
-        timestamp: DateTime(2024, 6, 15, 8, 0),
-        detectedFood: 'Oatmeal',
-        calories: 200,
-        protein: 8.0,
-        carbs: 35.0,
-        fat: 3.0,
-      ).toFirestore());
+      await mealsRef.add(
+        MealModel(
+          timestamp: DateTime(2024, 6, 15, 8, 0),
+          detectedFood: 'Oatmeal',
+          calories: 200,
+          protein: 8.0,
+          carbs: 35.0,
+          fat: 3.0,
+        ).toFirestore(),
+      );
 
-      await mealsRef.add(MealModel(
-        timestamp: DateTime(2024, 6, 15, 13, 0),
-        detectedFood: 'Salad',
-        calories: 150,
-        protein: 5.0,
-        carbs: 20.0,
-        fat: 6.0,
-      ).toFirestore());
+      await mealsRef.add(
+        MealModel(
+          timestamp: DateTime(2024, 6, 15, 13, 0),
+          detectedFood: 'Salad',
+          calories: 150,
+          protein: 5.0,
+          carbs: 20.0,
+          fat: 6.0,
+        ).toFirestore(),
+      );
 
       final snap = await mealsRef.get();
       expect(snap.docs.length, 2);
@@ -179,14 +352,14 @@ void main() {
           .collection('chatHistory');
 
       await chatRef.add(ChatMessageModel.user('Hello').toFirestore());
-      await chatRef
-          .add(ChatMessageModel.assistant('Hi there!').toFirestore());
+      await chatRef.add(ChatMessageModel.assistant('Hi there!').toFirestore());
 
       final snap = await chatRef.get();
       expect(snap.docs.length, 2);
 
-      final messages =
-          snap.docs.map((d) => ChatMessageModel.fromFirestore(d)).toList();
+      final messages = snap.docs
+          .map((d) => ChatMessageModel.fromFirestore(d))
+          .toList();
       expect(messages.any((m) => m.role == 'user'), isTrue);
       expect(messages.any((m) => m.role == 'assistant'), isTrue);
     });
@@ -204,21 +377,29 @@ void main() {
           .collection('friends');
 
       // Send friend request
-      await friends1.doc('uid2').set(FriendshipModel(
-            friendUid: 'uid2',
-            friendName: 'Bob',
-            friendEmail: 'bob@test.com',
-            status: 'pending',
-            createdAt: DateTime(2024, 6, 15),
-          ).toFirestore());
+      await friends1
+          .doc('uid2')
+          .set(
+            FriendshipModel(
+              friendUid: 'uid2',
+              friendName: 'Bob',
+              friendEmail: 'bob@test.com',
+              status: 'pending',
+              createdAt: DateTime(2024, 6, 15),
+            ).toFirestore(),
+          );
 
-      await friends2.doc('uid1').set(FriendshipModel(
-            friendUid: 'uid1',
-            friendName: 'Alice',
-            friendEmail: 'alice@test.com',
-            status: 'pending',
-            createdAt: DateTime(2024, 6, 15),
-          ).toFirestore());
+      await friends2
+          .doc('uid1')
+          .set(
+            FriendshipModel(
+              friendUid: 'uid1',
+              friendName: 'Alice',
+              friendEmail: 'alice@test.com',
+              status: 'pending',
+              createdAt: DateTime(2024, 6, 15),
+            ).toFirestore(),
+          );
 
       // Verify pending
       var doc1 = await friends1.doc('uid2').get();
@@ -244,8 +425,14 @@ void main() {
           .doc('uid2')
           .collection('friends');
 
-      await friends1.doc('uid2').set({'friendName': 'Bob', 'status': 'accepted'});
-      await friends2.doc('uid1').set({'friendName': 'Alice', 'status': 'accepted'});
+      await friends1.doc('uid2').set({
+        'friendName': 'Bob',
+        'status': 'accepted',
+      });
+      await friends2.doc('uid1').set({
+        'friendName': 'Alice',
+        'status': 'accepted',
+      });
 
       // Remove
       await friends1.doc('uid2').delete();
@@ -276,13 +463,13 @@ void main() {
         'createdAt': Timestamp.fromDate(DateTime(2024, 6, 2)),
       });
 
-      final accepted =
-          await friends.where('status', isEqualTo: 'accepted').get();
+      final accepted = await friends
+          .where('status', isEqualTo: 'accepted')
+          .get();
       expect(accepted.docs.length, 1);
       expect(accepted.docs.first.data()['friendName'], 'Bob');
 
-      final pending =
-          await friends.where('status', isEqualTo: 'pending').get();
+      final pending = await friends.where('status', isEqualTo: 'pending').get();
       expect(pending.docs.length, 1);
       expect(pending.docs.first.data()['friendName'], 'Charlie');
     });

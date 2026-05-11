@@ -20,9 +20,7 @@ void main() async {
     debugPrint("Ortam değişkenleri (.env) yüklenemedi: $e");
   }
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Enable Firestore offline persistence (skip on web — it uses indexedDb by default)
   if (!kIsWeb) {
@@ -34,11 +32,7 @@ void main() async {
   // Initialize notifications
   await NotificationService.instance.initialize();
 
-  runApp(
-    const ProviderScope(
-      child: AuraApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: AuraApp()));
 }
 
 class AuraApp extends ConsumerWidget {
@@ -59,10 +53,7 @@ class AuraApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('tr'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('tr')],
     );
   }
 }

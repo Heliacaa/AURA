@@ -28,7 +28,11 @@ class CharacterScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.cloud_off, color: AppTheme.textSecondary, size: 48),
+                const Icon(
+                  Icons.cloud_off,
+                  color: AppTheme.textSecondary,
+                  size: 48,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'Sunucuya bağlanılamadı',
@@ -41,7 +45,10 @@ class CharacterScreen extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Firebase Firestore veritabanının oluşturulduğundan emin olun.',
-                  style: GoogleFonts.poppins(color: AppTheme.textSecondary, fontSize: 13),
+                  style: GoogleFonts.poppins(
+                    color: AppTheme.textSecondary,
+                    fontSize: 13,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -89,10 +96,7 @@ class CharacterScreen extends ConsumerWidget {
                 const SizedBox(height: 20),
 
                 // XP bar
-                XpProgressBar(
-                  currentXp: user.xp,
-                  maxXp: user.xpToNextLevel,
-                ),
+                XpProgressBar(currentXp: user.xp, maxXp: user.xpToNextLevel),
                 const SizedBox(height: 32),
 
                 // Stats section
@@ -165,7 +169,8 @@ class CharacterScreen extends ConsumerWidget {
                             decoration: BoxDecoration(
                               color: AppTheme.cardBackground,
                               borderRadius: BorderRadius.circular(
-                                  AppTheme.cardBorderRadius),
+                                AppTheme.cardBorderRadius,
+                              ),
                             ),
                             child: Text(
                               'Bugün henüz kazanım yok. Hedeflerini tamamla!',
@@ -182,11 +187,13 @@ class CharacterScreen extends ConsumerWidget {
                             .toList();
                         return Column(
                           children: tasks
-                              .map((task) => AuraCard(
-                                    emoji: '⚡',
-                                    title: task,
-                                    borderColor: AppTheme.primaryAccent,
-                                  ))
+                              .map(
+                                (task) => AuraCard(
+                                  emoji: '⚡',
+                                  title: task,
+                                  borderColor: AppTheme.primaryAccent,
+                                ),
+                              )
                               .toList(),
                         );
                       },
@@ -220,8 +227,9 @@ class CharacterScreen extends ConsumerWidget {
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppTheme.cardBackground,
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.cardBorderRadius),
+                          borderRadius: BorderRadius.circular(
+                            AppTheme.cardBorderRadius,
+                          ),
                         ),
                         child: Text(
                           'Henüz başarım kazanılmadı. 🏆',
@@ -238,8 +246,7 @@ class CharacterScreen extends ConsumerWidget {
                       child: ListView.separated(
                         scrollDirection: Axis.horizontal,
                         itemCount: achievements.length,
-                        separatorBuilder: (_, _) =>
-                            const SizedBox(width: 12),
+                        separatorBuilder: (_, _) => const SizedBox(width: 12),
                         itemBuilder: (context, index) {
                           final a = achievements[index];
                           return Container(
@@ -248,7 +255,8 @@ class CharacterScreen extends ConsumerWidget {
                             decoration: BoxDecoration(
                               color: AppTheme.cardBackground,
                               borderRadius: BorderRadius.circular(
-                                  AppTheme.cardBorderRadius),
+                                AppTheme.cardBorderRadius,
+                              ),
                               border: Border.all(
                                 color: AppTheme.primaryAccent.withAlpha(60),
                               ),
@@ -256,8 +264,10 @@ class CharacterScreen extends ConsumerWidget {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(a.icon,
-                                    style: const TextStyle(fontSize: 28)),
+                                Text(
+                                  a.icon,
+                                  style: const TextStyle(fontSize: 28),
+                                ),
                                 const SizedBox(height: 4),
                                 Text(
                                   a.title,

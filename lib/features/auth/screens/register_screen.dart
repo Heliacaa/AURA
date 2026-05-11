@@ -34,7 +34,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _loading = true);
     try {
-      await ref.read(authServiceProvider).register(
+      await ref
+          .read(authServiceProvider)
+          .register(
             email: _emailController.text.trim(),
             password: _passwordController.text,
             displayName: _nameController.text.trim(),
@@ -69,8 +71,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => context.go('/login'),
-                    icon: const Icon(Icons.arrow_back_ios_new,
-                        color: AppTheme.textWhite, size: 20),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new,
+                      color: AppTheme.textWhite,
+                      size: 20,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

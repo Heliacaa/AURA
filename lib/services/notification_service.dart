@@ -12,8 +12,9 @@ class NotificationService {
     // flutter_local_notifications does not support web
     if (kIsWeb) return;
 
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,

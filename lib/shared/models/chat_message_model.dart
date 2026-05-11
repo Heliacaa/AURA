@@ -26,10 +26,10 @@ class ChatMessageModel {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'timestamp': Timestamp.fromDate(timestamp),
-        'role': role,
-        'content': content,
-      };
+    'timestamp': Timestamp.fromDate(timestamp),
+    'role': role,
+    'content': content,
+  };
 
   factory ChatMessageModel.user(String content) {
     return ChatMessageModel(

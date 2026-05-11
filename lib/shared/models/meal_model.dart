@@ -39,15 +39,15 @@ class MealModel {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'timestamp': Timestamp.fromDate(timestamp),
-        'imageUrl': imageUrl,
-        'detectedFood': detectedFood,
-        'calories': calories,
-        'protein': protein,
-        'carbs': carbs,
-        'fat': fat,
-        'aiAdvice': aiAdvice,
-      };
+    'timestamp': Timestamp.fromDate(timestamp),
+    'imageUrl': imageUrl,
+    'detectedFood': detectedFood,
+    'calories': calories,
+    'protein': protein,
+    'carbs': carbs,
+    'fat': fat,
+    'aiAdvice': aiAdvice,
+  };
 
   factory MealModel.fromJson(Map<String, dynamic> json) {
     return MealModel(

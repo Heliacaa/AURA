@@ -28,10 +28,10 @@ class AchievementModel {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'id': id,
-        'title': title,
-        'description': description,
-        'unlockedAt': Timestamp.fromDate(unlockedAt),
-        'icon': icon,
-      };
+    'id': id,
+    'title': title,
+    'description': description,
+    'unlockedAt': Timestamp.fromDate(unlockedAt),
+    'icon': icon,
+  };
 }

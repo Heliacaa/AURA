@@ -35,7 +35,8 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       final authUser = ref.read(authStateProvider).valueOrNull;
       if (currentUser == null || authUser == null) return;
 
-      final foundUser = await FirestoreService.instance.findUserByEmail(email);
+      final foundUser = await FirestoreService.instance
+          .findPublicProfileByEmail(email);
       if (foundUser == null) {
         if (mounted) {
           ScaffoldMessenger.of(

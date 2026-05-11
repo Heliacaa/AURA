@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/theme/app_theme.dart';
@@ -167,20 +168,56 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Greeting
-                  Text(
-                    '${AppDateUtils.greeting()},',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    '${user.displayName}! 👋',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryAccent,
+                  // Greeting / profile entry
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => context.push('/profile'),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${AppDateUtils.greeting()},',
+                                style: GoogleFonts.poppins(
+                                  fontSize: 16,
+                                  color: AppTheme.textSecondary,
+                                ),
+                              ),
+                              Text(
+                                '${user.displayName}! 👋',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppTheme.primaryAccent,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        CircleAvatar(
+                          radius: 24,
+                          backgroundColor: AppTheme.primaryAccent.withAlpha(40),
+                          backgroundImage: user.avatarUrl.isNotEmpty
+                              ? NetworkImage(user.avatarUrl)
+                              : null,
+                          child: user.avatarUrl.isEmpty
+                              ? Text(
+                                  user.displayName.isNotEmpty
+                                      ? user.displayName[0].toUpperCase()
+                                      : '?',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.primaryAccent,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 32),

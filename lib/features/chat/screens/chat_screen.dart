@@ -37,23 +37,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.cardBackground,
-        title: Text('Sohbet Geçmişini Sil',
-            style: GoogleFonts.poppins(color: AppTheme.textWhite)),
-        content: Text('Tüm sohbet geçmişini silmek istediğinin emin misin? Bu işlem geri alınamaz.',
-            style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+        title: Text(
+          'Sohbet Geçmişini Sil',
+          style: GoogleFonts.poppins(color: AppTheme.textWhite),
+        ),
+        content: Text(
+          'Tüm sohbet geçmişini silmek istediğinin emin misin? Bu işlem geri alınamaz.',
+          style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text('İptal',
-                style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            ),
           ),
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
               ref.read(chatNotifierProvider.notifier).clearHistory();
             },
-            child: Text('Evet, Sil',
-                style: GoogleFonts.poppins(color: Colors.redAccent)),
+            child: Text(
+              'Evet, Sil',
+              style: GoogleFonts.poppins(color: Colors.redAccent),
+            ),
           ),
         ],
       ),
@@ -108,8 +116,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 const Spacer(),
                 IconButton(
                   onPressed: () => _confirmClearHistory(context),
-                  icon: const Icon(Icons.delete_outline,
-                      color: AppTheme.textSecondary),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: AppTheme.textSecondary,
+                  ),
                   tooltip: 'Geçmişi Temizle',
                 ),
               ],
@@ -121,12 +131,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           Expanded(
             child: messagesAsync.when(
               loading: () => const Center(
-                child:
-                    CircularProgressIndicator(color: AppTheme.primaryAccent),
+                child: CircularProgressIndicator(color: AppTheme.primaryAccent),
               ),
               error: (e, _) => Center(
-                child: Text('Hata: $e',
-                    style: GoogleFonts.poppins(color: AppTheme.textSecondary)),
+                child: Text(
+                  'Hata: $e',
+                  style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+                ),
               ),
               data: (messages) {
                 if (messages.isEmpty) {
@@ -151,8 +162,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 return ListView.builder(
                   controller: _scrollController,
                   reverse: true,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   itemCount: messages.length + (isLoading ? 1 : 0),
                   itemBuilder: (context, index) {
                     if (isLoading && index == 0) {
@@ -209,8 +222,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     ),
                     child: IconButton(
                       onPressed: isLoading ? null : _sendMessage,
-                      icon: const Icon(Icons.send_rounded,
-                          color: Colors.white, size: 22),
+                      icon: const Icon(
+                        Icons.send_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
                     ),
                   ),
                 ],
@@ -262,12 +278,12 @@ class _ChatBubble extends StatelessWidget {
           maxWidth: MediaQuery.of(context).size.width * 0.75,
         ),
         child: Column(
-          crossAxisAlignment:
-              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          crossAxisAlignment: isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
           children: [
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
                 color: isUser
                     ? AppTheme.chatUserBubble

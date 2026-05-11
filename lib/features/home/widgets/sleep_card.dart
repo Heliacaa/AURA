@@ -65,8 +65,11 @@ class SleepCard extends StatelessWidget {
               ),
             ),
             if (!hasData)
-              const Icon(Icons.add_circle_outline,
-                  color: AppTheme.statBlue, size: 24),
+              const Icon(
+                Icons.add_circle_outline,
+                color: AppTheme.statBlue,
+                size: 24,
+              ),
           ],
         ),
       ),

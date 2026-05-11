@@ -15,8 +15,11 @@ class LevelUpDialog extends StatefulWidget {
   });
 
   /// Show level-up dialog with confetti
-  static Future<void> show(BuildContext context,
-      {required int level, String? newClass}) async {
+  static Future<void> show(
+    BuildContext context, {
+    required int level,
+    String? newClass,
+  }) async {
     final className = newClass ?? UserModel.classForLevel(level);
     await showDialog(
       context: context,
@@ -35,8 +38,9 @@ class _LevelUpDialogState extends State<LevelUpDialog> {
   @override
   void initState() {
     super.initState();
-    _confettiController =
-        ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
     _confettiController.play();
   }
 
@@ -69,8 +73,9 @@ class _LevelUpDialogState extends State<LevelUpDialog> {
       children: [
         AlertDialog(
           backgroundColor: AppTheme.cardBackground,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
