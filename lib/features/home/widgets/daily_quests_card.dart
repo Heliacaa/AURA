@@ -94,10 +94,20 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
           ...DailyQuestCatalog.all.map((quest) {
             final status = _statusFor(quest);
             final isClaiming = _claimingQuestId == quest.id;
+            
+            // Dinamik olarak hedef sayılarını subtitle içerisine gömelim
+            String questSubtitle = quest.subtitle;
+            if (quest.id == DailyQuestIds.water) {
+              questSubtitle = 'Günlük su hedefini (${widget.goals.waterGlasses} bardak) tamamla';
+            } else if (quest.id == DailyQuestIds.steps) {
+              questSubtitle = 'Günlük adım hedefini (${widget.goals.steps}) tamamla';
+            }
+            
             return Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _QuestRow(
                 quest: quest,
+                dynamicSubtitle: questSubtitle,
                 status: status,
                 isClaiming: isClaiming,
                 onClaim: status == DailyQuestStatus.ready && !isClaiming
@@ -155,12 +165,14 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
 
 class _QuestRow extends StatelessWidget {
   final DailyQuest quest;
+  final String dynamicSubtitle;
   final DailyQuestStatus status;
   final bool isClaiming;
   final VoidCallback? onClaim;
 
   const _QuestRow({
     required this.quest,
+    required this.dynamicSubtitle,
     required this.status,
     required this.isClaiming,
     required this.onClaim,
@@ -208,7 +220,7 @@ class _QuestRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${quest.subtitle} · +${quest.xpReward} XP',
+                  '$dynamicSubtitle · +${quest.xpReward} XP',
                   style: GoogleFonts.poppins(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
