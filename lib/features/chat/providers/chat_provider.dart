@@ -6,6 +6,7 @@ import '../../home/providers/home_provider.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/memory_service.dart';
 import '../services/gemini_service.dart';
+import '../../social/providers/social_providers.dart';
 
 /// Chat messages stream
 final chatMessagesProvider = StreamProvider<List<ChatMessageModel>>((ref) {
@@ -53,6 +54,18 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
         authUser.uid,
       );
 
+      // Build community challenges context
+      final challenges = ref.read(challengesProvider).valueOrNull ?? [];
+      String communityChallengesContext = '';
+      if (challenges.isNotEmpty) {
+        communityChallengesContext = '\nAktif Topluluk Hedefleri (Meydan Okumalar):\n';
+        for (var challenge in challenges) {
+          final isParticipating = challenge.participants.contains(authUser.uid);
+          final status = isParticipating ? 'Kullanıcı bu hedefe KATILDI.' : 'Kullanıcı bu hedefe HENÜZ KATILMADI.';
+          communityChallengesContext += '- ${challenge.title}: ${challenge.currentAmount} / ${challenge.targetAmount} ${challenge.unit}. $status\n';
+        }
+      }
+
       // Build system prompt with full user context + memories
       final log = ref.read(todayLogProvider).valueOrNull;
       final systemPrompt = GeminiService.instance.buildSystemPrompt(
@@ -66,6 +79,7 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
         calorieGoal: user.dailyGoals.calories,
         stepGoal: user.dailyGoals.steps,
         memories: memories,
+        communityChallengesContext: communityChallengesContext,
       );
 
       // Call Gemini

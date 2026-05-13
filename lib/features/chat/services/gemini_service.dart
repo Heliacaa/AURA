@@ -28,6 +28,7 @@ class GeminiService {
     int calorieGoal = 2000,
     int stepGoal = 10000,
     List<MemoryModel> memories = const [],
+    String communityChallengesContext = '',
   }) {
     final memoryContext = memories.isNotEmpty
         ? '\n\nKullanıcının daha önce paylaştığı önemli bilgiler:\n${memories.map((m) => '- [${m.category}] ${m.content}${m.relevantDate != null ? ' (Tarih: ${m.relevantDate!.toIso8601String().substring(0, 10)})' : ''}').join('\n')}'
@@ -44,6 +45,7 @@ Bugünkü veriler:
 - Kalori: $caloriesConsumed / $calorieGoal kcal
 - Uyku: ${sleepHours > 0 ? '${sleepHours}h' : 'Kayıt yok'}
 $memoryContext
+$communityChallengesContext
 
 Kısa, motive edici ve samimi cevaplar ver. Türkçe konuş.
 Eğer kullanıcının yaklaşan etkinlikleri veya hedefleri varsa, proaktif olarak hatırlat ve tavsiyelerde bulun.
