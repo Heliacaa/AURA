@@ -98,17 +98,37 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final uid = ref.read(authStateProvider).valueOrNull?.uid;
 
     if (image == null || result == null || uid == null) return;
+    
+    ref.read(scanSavingProvider.notifier).state = true;
 
     try {
-      // Upload image
-      final imageUrl = await StorageService.instance.uploadMealImage(
-        uid: uid,
-        imageFile: image,
-      );
+      // Upload image (with fallback)
+      debugPrint('Resim yükleniyor...');
+      String imageUrl = '';
+      try {
+        imageUrl = await StorageService.instance.uploadMealImage(
+          uid: uid,
+          imageFile: image,
+        );
+        debugPrint('Resim yüklendi: $imageUrl');
+      } catch (storageErr) {
+        debugPrint('Resim yüklenemedi (Storage hatası): $storageErr');
+        // İsteğe bağlı olarak kullanıcıya küçük bir uyarı gösterebilirsiniz
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Resim Firebase\'e yüklenemedi ancak veriler kaydediliyor...')),
+          );
+        }
+      }
 
       // Save meal with image URL
+      debugPrint('Firestore kaydı yapılıyor...');
       final meal = result.copyWith(imageUrl: imageUrl);
-      await FirestoreService.instance.saveMeal(uid, meal);
+      await FirestoreService.instance.saveMeal(uid, meal).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () => throw Exception('Veritabanı kaydı zaman aşımına uğradı.'),
+      );
+      debugPrint('Firestore kaydı tamamlandı.');
 
       // Award XP
       await FirestoreService.instance.updateUserXP(
@@ -133,6 +153,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
           SnackBar(content: Text('Kayıt başarısız: ${e.toString()}')),
         );
       }
+    } finally {
+      ref.read(scanSavingProvider.notifier).state = false;
     }
   }
 
@@ -141,6 +163,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final image = ref.watch(scannedImageProvider);
     final result = ref.watch(scanResultProvider);
     final isLoading = ref.watch(scanLoadingProvider);
+    final isSaving = ref.watch(scanSavingProvider);
+    final pastScansAsyc = ref.watch(pastScansProvider);
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -381,23 +405,122 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
 
               // Save button
               GestureDetector(
-                onTap: _saveMeal,
+                onTap: isSaving ? null : _saveMeal,
                 child: Container(
                   height: 52,
                   decoration: AppTheme.gradientButton(radius: 12),
                   child: Center(
-                    child: Text(
-                      'Kaydet',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: isSaving 
+                        ? const SizedBox(
+                            height: 24, 
+                            width: 24, 
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                          )
+                        : Text(
+                            'Kaydet',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),
             ],
+            
+            const SizedBox(height: 32),
+            
+            // Past Scans Section
+            pastScansAsyc.when(
+              data: (meals) {
+                if (meals.isEmpty) return const SizedBox.shrink();
+                
+                return Theme(
+                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(
+                      'Eski Taratmalar',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.textWhite,
+                      ),
+                    ),
+                    children: [
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 140,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: meals.length,
+                          separatorBuilder: (context, index) => const SizedBox(width: 12),
+                          itemBuilder: (context, index) {
+                            final meal = meals[index];
+                            return Container(
+                              width: 120,
+                              decoration: BoxDecoration(
+                                color: AppTheme.cardBackground,
+                                borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.vertical(
+                                        top: Radius.circular(AppTheme.cardBorderRadius),
+                                      ),
+                                      child: meal.imageUrl.isNotEmpty
+                                          ? Image.network(
+                                              meal.imageUrl,
+                                              fit: BoxFit.cover,
+                                            )
+                                          : Container(
+                                              color: Colors.grey.withAlpha(30),
+                                              child: const Icon(Icons.fastfood, color: Colors.grey),
+                                            ),
+                                    ),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(8.0),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          meal.detectedFood,
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                            color: AppTheme.textWhite,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        Text(
+                                          '${meal.calories} kcal',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 10,
+                                            color: AppTheme.secondaryAccent,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+              loading: () => const SizedBox.shrink(),
+              error: (e, st) => const SizedBox.shrink(),
+            ),
           ],
         ),
       ),

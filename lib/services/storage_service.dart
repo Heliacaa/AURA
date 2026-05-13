@@ -18,11 +18,15 @@ class StorageService {
     final ref = _storage.ref().child('users/$uid/meals/$timestamp.jpg');
     final metadata = SettableMetadata(contentType: 'image/jpeg');
 
-    final uploadTask = kIsWeb
-        ? ref.putData(await imageFile.readAsBytes(), metadata)
-        : ref.putFile(File(imageFile.path), metadata);
+    // Use putData instead of putFile to ensure it works across all platforms (Windows, Web, etc.)
+    final imageBytes = await imageFile.readAsBytes();
+    final uploadTask = ref.putData(imageBytes, metadata);
 
-    final snapshot = await uploadTask;
+    // Add a timeout to prevent infinite hanging
+    final snapshot = await uploadTask.timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw Exception('Resim yükleme zaman aşımına uğradı. Lütfen internet bağlantını kontrol et.'),
+    );
     return await snapshot.ref.getDownloadURL();
   }
 }
