@@ -37,6 +37,12 @@ class FirestoreService {
   DocumentReference _publicProfile(String uid) =>
       _db.collection('publicProfiles').doc(uid);
 
+  DocumentReference _friendProfile(String uid) =>
+      _db.collection('friendProfiles').doc(uid);
+
+  DocumentReference _userSearchDoc(String email) =>
+      _db.collection('userSearch').doc(email.toLowerCase());
+
   CollectionReference _leaderboardEntries(String weekKey) =>
       _db.collection('leaderboards').doc(weekKey).collection('entries');
 
@@ -60,10 +66,8 @@ class FirestoreService {
       createdAt: DateTime.now(),
       lastActiveDate: DateTime.now(),
     );
-    final batch = _db.batch();
-    batch.set(_userDoc(uid), user.toFirestore());
-    batch.set(_publicProfile(uid), _publicProfileData(user));
-    await batch.commit();
+    await _userDoc(uid).set(user.toFirestore());
+    await _syncProfileProjections(user);
   }
 
   /// Ensure user document exists — create if missing
@@ -104,10 +108,7 @@ class FirestoreService {
     }
     final refreshed = await _userDoc(uid).get();
     if (refreshed.exists) {
-      await _publicProfile(uid).set(
-        _publicProfileData(UserModel.fromFirestore(refreshed)),
-        SetOptions(merge: true),
-      );
+      await _syncProfileProjections(UserModel.fromFirestore(refreshed));
     }
   }
 
@@ -145,10 +146,7 @@ class FirestoreService {
 
     final doc = await _userDoc(uid).get();
     if (doc.exists) {
-      await _publicProfile(uid).set(
-        _publicProfileData(UserModel.fromFirestore(doc)),
-        SetOptions(merge: true),
-      );
+      await _syncProfileProjections(UserModel.fromFirestore(doc));
     }
 
     await setLeaderboardOptIn(uid, leaderboardOptIn);
@@ -217,19 +215,6 @@ class FirestoreService {
         'stats': updatedStats,
       });
 
-      transaction.set(_publicProfile(uid), {
-        'uid': uid,
-        'displayName': data['displayName'] ?? '',
-        'avatarUrl': data['avatarUrl'] ?? '',
-        'currentLevel': currentLevel,
-        'currentClass': newClass,
-        'xp': currentXp,
-        'streakDays': data['streakDays'] ?? 0,
-        'weeklyXp': weeklyXp,
-        'weeklyXpWeek': weeklyXpWeek,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      }, SetOptions(merge: true));
-
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
           'uid': uid,
@@ -254,6 +239,11 @@ class FirestoreService {
         });
       }
     });
+
+    final userDoc = await _userDoc(uid).get();
+    if (userDoc.exists) {
+      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
 
     return leveledUp;
   }
@@ -325,19 +315,6 @@ class FirestoreService {
         'stats': updatedStats,
       });
 
-      transaction.set(_publicProfile(uid), {
-        'uid': uid,
-        'displayName': userData['displayName'] ?? '',
-        'avatarUrl': userData['avatarUrl'] ?? '',
-        'currentLevel': currentLevel,
-        'currentClass': newClass,
-        'xp': currentXp,
-        'streakDays': userData['streakDays'] ?? 0,
-        'weeklyXp': weeklyXp,
-        'weeklyXpWeek': weeklyXpWeek,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      }, SetOptions(merge: true));
-
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
           'uid': uid,
@@ -361,6 +338,11 @@ class FirestoreService {
 
       claimed = true;
     });
+
+    final userDoc = await _userDoc(uid).get();
+    if (userDoc.exists) {
+      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
 
     return claimed;
   }
@@ -391,12 +373,12 @@ class FirestoreService {
         'streakDays': newStreak,
         'lastActiveDate': Timestamp.fromDate(now),
       });
-      transaction.set(_publicProfile(uid), {
-        'uid': uid,
-        'streakDays': newStreak,
-        'updatedAt': Timestamp.fromDate(now),
-      }, SetOptions(merge: true));
     });
+
+    final userDoc = await _userDoc(uid).get();
+    if (userDoc.exists) {
+      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
   }
 
   // ─── Daily Log ────────────────────────────────────────────
@@ -590,9 +572,28 @@ class FirestoreService {
 
   /// Get a user's public stats for leaderboard
   Future<Map<String, dynamic>?> getUserPublicStats(String uid) async {
-    final doc = await _publicProfile(uid).get();
-    if (!doc.exists) return null;
-    final data = doc.data() as Map<String, dynamic>? ?? {};
+    var data = <String, dynamic>{};
+    try {
+      final doc = await _publicProfile(uid).get();
+      if (doc.exists) {
+        data = doc.data() as Map<String, dynamic>? ?? {};
+      }
+    } on FirebaseException {
+      data = {};
+    }
+
+    if (data.isEmpty) {
+      try {
+        final doc = await _userDoc(uid).get();
+        if (doc.exists) {
+          data = doc.data() as Map<String, dynamic>? ?? {};
+        }
+      } on FirebaseException {
+        data = {};
+      }
+    }
+
+    if (data.isEmpty) return null;
     return {
       'displayName': data['displayName'] ?? '',
       'currentLevel': data['currentLevel'] ?? 1,
@@ -630,19 +631,6 @@ class FirestoreService {
         'weeklyXpWeek': weeklyXpWeek,
       });
 
-      transaction.set(_publicProfile(uid), {
-        'uid': uid,
-        'displayName': data['displayName'] ?? '',
-        'avatarUrl': data['avatarUrl'] ?? '',
-        'currentLevel': data['currentLevel'] ?? 1,
-        'currentClass': data['currentClass'] ?? 'Novice',
-        'xp': data['xp'] ?? 0,
-        'streakDays': data['streakDays'] ?? 0,
-        'weeklyXp': weeklyXp,
-        'weeklyXpWeek': weeklyXpWeek,
-        'updatedAt': Timestamp.fromDate(DateTime.now()),
-      }, SetOptions(merge: true));
-
       if (enabled) {
         transaction.set(leaderboardRef, {
           'uid': uid,
@@ -657,6 +645,11 @@ class FirestoreService {
         transaction.delete(leaderboardRef);
       }
     });
+
+    final userDoc = await _userDoc(uid).get();
+    if (userDoc.exists) {
+      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
   }
 
   /// Stream public entries for the current weekly league.
@@ -746,6 +739,8 @@ class FirestoreService {
   Map<String, dynamic> _publicProfileData(UserModel user) => {
     'uid': user.uid,
     'displayName': user.displayName,
+    'email': user.email,
+    'emailLower': user.email.toLowerCase(),
     'avatarUrl': user.avatarUrl,
     'currentLevel': user.currentLevel,
     'currentClass': user.currentClass,
@@ -755,4 +750,41 @@ class FirestoreService {
     'weeklyXpWeek': user.weeklyXpWeek,
     'updatedAt': Timestamp.fromDate(DateTime.now()),
   };
+
+  Map<String, dynamic> _friendProfileData(UserModel user) => {
+    'uid': user.uid,
+    'age': user.age,
+    'dailyGoals': user.dailyGoals.toMap(),
+    'socialEnergyLevel': user.socialEnergyLevel,
+    'updatedAt': Timestamp.fromDate(DateTime.now()),
+  };
+
+  Map<String, dynamic> _userSearchData(UserModel user) => {
+    'uid': user.uid,
+    'displayName': user.displayName,
+    'email': user.email,
+    'emailLower': user.email.toLowerCase(),
+    'avatarUrl': user.avatarUrl,
+    'updatedAt': Timestamp.fromDate(DateTime.now()),
+  };
+
+  Future<void> _syncProfileProjections(UserModel user) async {
+    await _setBestEffort(_publicProfile(user.uid), _publicProfileData(user));
+    await _setBestEffort(_friendProfile(user.uid), _friendProfileData(user));
+    if (user.email.isNotEmpty) {
+      await _setBestEffort(_userSearchDoc(user.email), _userSearchData(user));
+    }
+  }
+
+  Future<void> _setBestEffort(
+    DocumentReference ref,
+    Map<String, dynamic> data,
+  ) async {
+    try {
+      await ref.set(data, SetOptions(merge: true));
+    } on FirebaseException {
+      // Projection writes are helpful for search/public profile discovery, but
+      // the private profile save should not fail if deployed rules lag behind.
+    }
+  }
 }

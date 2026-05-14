@@ -44,6 +44,8 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           'uid',
           'displayName',
+          'email',
+          'emailLower',
           'avatarUrl',
           'currentLevel',
           'currentClass',
@@ -57,11 +59,82 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Directed friendships are created and changed by callable functions.
+    // Friend-visible profile details. Height and weight are intentionally absent.
+    match /friendProfiles/{userId} {
+      allow read: if request.auth != null
+        && (
+          request.auth.uid == userId
+          || exists(/databases/$(database)/documents/friendships/$(request.auth.uid + "_" + userId))
+            && get(/databases/$(database)/documents/friendships/$(request.auth.uid + "_" + userId)).data.status == 'accepted'
+          || exists(/databases/$(database)/documents/friendships/$(userId + "_" + request.auth.uid))
+            && get(/databases/$(database)/documents/friendships/$(userId + "_" + request.auth.uid)).data.status == 'accepted'
+        );
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'age',
+          'dailyGoals',
+          'socialEnergyLevel',
+          'updatedAt'
+        ])
+        && request.resource.data.uid == userId;
+      allow delete: if false;
+    }
+
+    // Exact-email lookup projection. Clients use get(), not list().
+    match /userSearch/{emailKey} {
+      allow get: if request.auth != null;
+      allow list: if false;
+      allow create, update: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.emailLower == emailKey
+        && request.resource.data.keys().hasOnly([
+          'uid',
+          'displayName',
+          'email',
+          'emailLower',
+          'avatarUrl',
+          'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // Directed friendships can be managed by authenticated participants.
     match /friendships/{friendshipId} {
       allow read: if request.auth != null
         && request.auth.uid in resource.data.participantUids;
-      allow create, update, delete: if false;
+      allow create: if request.auth != null
+        && request.auth.uid == request.resource.data.requesterUid
+        && request.resource.data.requesterUid != request.resource.data.recipientUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.participantUids is list
+        && request.resource.data.participantUids.size() == 2
+        && request.resource.data.participantUids.hasAll([
+          request.resource.data.requesterUid,
+          request.resource.data.recipientUid
+        ])
+        && request.resource.data.keys().hasOnly([
+          'participantUids',
+          'requesterUid',
+          'recipientUid',
+          'status',
+          'createdAt',
+          'updatedAt',
+          'requester',
+          'recipient'
+        ]);
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.recipientUid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.participantUids == resource.data.participantUids
+        && request.resource.data.requesterUid == resource.data.requesterUid
+        && request.resource.data.recipientUid == resource.data.recipientUid
+        && request.resource.data.requester == resource.data.requester
+        && request.resource.data.recipient == resource.data.recipient;
+      allow delete: if request.auth != null
+        && request.auth.uid in resource.data.participantUids;
     }
 
     // Public weekly leaderboard projection. Entries contain only public stats.

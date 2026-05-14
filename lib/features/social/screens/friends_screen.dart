@@ -52,6 +52,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
   Future<void> _searchByEmail() async {
     final email = _emailController.text.trim();
     if (email.isEmpty) return;
+    if (!email.contains('@') || !email.contains('.')) {
+      setState(() {
+        _searchResult = null;
+        _searchMessage = 'Geçerli bir e-posta adresi gir.';
+      });
+      return;
+    }
 
     setState(() {
       _searching = true;
