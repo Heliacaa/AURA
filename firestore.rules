@@ -103,17 +103,9 @@ service cloud.firestore {
     // Directed friendships can be managed by authenticated participants.
     match /friendships/{friendshipId} {
       allow read: if request.auth != null
+        && resource.data.participantUids is list
         && request.auth.uid in resource.data.participantUids;
       allow create: if request.auth != null
-        && request.auth.uid == request.resource.data.requesterUid
-        && request.resource.data.requesterUid != request.resource.data.recipientUid
-        && request.resource.data.status == 'pending'
-        && request.resource.data.participantUids is list
-        && request.resource.data.participantUids.size() == 2
-        && request.resource.data.participantUids.hasAll([
-          request.resource.data.requesterUid,
-          request.resource.data.recipientUid
-        ])
         && request.resource.data.keys().hasOnly([
           'participantUids',
           'requesterUid',
@@ -123,17 +115,47 @@ service cloud.firestore {
           'updatedAt',
           'requester',
           'recipient'
-        ]);
+        ])
+        && request.resource.data.requesterUid == request.auth.uid
+        && request.resource.data.recipientUid is string
+        && request.resource.data.requesterUid != request.resource.data.recipientUid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.participantUids is list
+        && request.resource.data.participantUids.size() == 2
+        && request.resource.data.requesterUid in request.resource.data.participantUids
+        && request.resource.data.recipientUid in request.resource.data.participantUids;
       allow update: if request.auth != null
-        && request.auth.uid == resource.data.recipientUid
-        && resource.data.status == 'pending'
-        && request.resource.data.status == 'accepted'
-        && request.resource.data.participantUids == resource.data.participantUids
-        && request.resource.data.requesterUid == resource.data.requesterUid
-        && request.resource.data.recipientUid == resource.data.recipientUid
-        && request.resource.data.requester == resource.data.requester
-        && request.resource.data.recipient == resource.data.recipient;
+        && (
+          request.auth.uid == resource.data.recipientUid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'accepted'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'updatedAt',
+              'acceptedAt'
+            ])
+          || request.auth.uid == resource.data.requesterUid
+            && resource.data.status == 'pending'
+            && request.resource.data.keys().hasOnly([
+              'participantUids',
+              'requesterUid',
+              'recipientUid',
+              'status',
+              'createdAt',
+              'updatedAt',
+              'requester',
+              'recipient'
+            ])
+            && request.resource.data.requesterUid == resource.data.requesterUid
+            && request.resource.data.recipientUid == resource.data.recipientUid
+            && request.resource.data.status == 'pending'
+            && request.resource.data.participantUids is list
+            && request.resource.data.participantUids.size() == 2
+            && request.resource.data.requesterUid in request.resource.data.participantUids
+            && request.resource.data.recipientUid in request.resource.data.participantUids
+        );
       allow delete: if request.auth != null
+        && resource.data.participantUids is list
         && request.auth.uid in resource.data.participantUids;
     }
 

@@ -107,8 +107,8 @@ class FriendFunctionsService {
     }
 
     final friendshipRef = _friendshipRef(fromUid, toUid);
-    final existing = await friendshipRef.get();
-    if (existing.exists) {
+    final existing = await _getExistingFriendship(friendshipRef);
+    if (existing != null && existing.exists) {
       final status =
           (existing.data() as Map<String, dynamic>? ?? {})['status'] as String?;
       throw FirebaseException(
@@ -250,6 +250,23 @@ class FriendFunctionsService {
       };
     }
 
+    final leaderboardDoc = await _getDoc(
+      _db
+          .collection('leaderboards')
+          .doc(AppDateUtils.weekKey())
+          .collection('entries')
+          .doc(uid),
+    );
+    if (leaderboardDoc != null && leaderboardDoc.exists) {
+      final data = leaderboardDoc.data() as Map<String, dynamic>? ?? {};
+      return {
+        'uid': uid,
+        'displayName': data['displayName'] ?? '',
+        'email': '',
+        'avatarUrl': data['avatarUrl'] ?? '',
+      };
+    }
+
     final authUser = _auth.currentUser;
     if (authUser != null && authUser.uid == uid) {
       return {
@@ -302,6 +319,17 @@ class FriendFunctionsService {
       return snap.docs.isEmpty ? null : snap.docs.first;
     } on FirebaseException {
       return null;
+    }
+  }
+
+  Future<DocumentSnapshot?> _getExistingFriendship(
+    DocumentReference ref,
+  ) async {
+    try {
+      return await ref.get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') return null;
+      rethrow;
     }
   }
 }
