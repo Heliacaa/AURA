@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../widgets/activity_feed_card.dart';
 import '../providers/social_providers.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -32,8 +33,9 @@ class ActivityFeedScreen extends ConsumerWidget {
           itemCount: activities.length,
           itemBuilder: (context, index) {
             final activity = activities[index];
-            final isLikedByMe = currentUserId != null && activity.likes.contains(currentUserId);
-            
+            final isLikedByMe =
+                currentUserId != null && activity.likes.contains(currentUserId);
+
             return ActivityFeedCard(
               userName: activity.userName,
               userAvatarUrl: activity.userAvatarUrl,
@@ -45,13 +47,21 @@ class ActivityFeedScreen extends ConsumerWidget {
               onLikePressed: () {
                 ref.read(socialServiceProvider).toggleLikeActivity(activity.id);
               },
+              onUserTap: activity.userId.isEmpty
+                  ? null
+                  : () => context.push('/public-profile/${activity.userId}'),
             );
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryAccent)),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryAccent),
+      ),
       error: (error, stack) => Center(
-        child: Text("Hata oluştu: ${error.toString()}", style: const TextStyle(color: Colors.redAccent)),
+        child: Text(
+          "Hata oluştu: ${error.toString()}",
+          style: const TextStyle(color: Colors.redAccent),
+        ),
       ),
     );
   }

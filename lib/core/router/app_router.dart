@@ -10,6 +10,9 @@ import '../../features/scan/screens/scan_screen.dart';
 import '../../features/character/screens/character_screen.dart';
 import '../../features/social/screens/social_screen.dart';
 import '../../features/profile/screens/profile_screen.dart';
+import '../../features/profile/screens/edit_profile_screen.dart';
+import '../../features/profile/screens/public_profile_screen.dart';
+import '../../features/social/screens/friends_screen.dart';
 import '../../shared/widgets/bottom_nav_shell.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -41,10 +44,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/splash',
         builder: (context, state) => const SplashScreen(),
       ),
-      GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginScreen(),
-      ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
@@ -99,6 +99,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (context, state) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: '/public-profile/:uid',
+        builder: (context, state) {
+          return PublicProfileScreen(uid: state.pathParameters['uid'] ?? '');
+        },
+      ),
+      GoRoute(
+        path: '/friends',
+        builder: (context, state) => const FriendsPage(),
       ),
     ],
   );

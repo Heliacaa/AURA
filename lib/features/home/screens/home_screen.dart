@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shimmer/shimmer.dart';
 import '../../../core/theme/app_theme.dart';
@@ -24,6 +25,114 @@ class HomeScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+enum _AccountAction { profile, editProfile, friends, signOut }
+
+class _AccountHeader extends StatelessWidget {
+  final String displayName;
+  final String avatarUrl;
+  final ValueChanged<_AccountAction> onSelected;
+
+  const _AccountHeader({
+    required this.displayName,
+    required this.avatarUrl,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final safeName = displayName.isNotEmpty ? displayName : 'AURA User';
+
+    return PopupMenuButton<_AccountAction>(
+      color: AppTheme.cardBackground,
+      onSelected: onSelected,
+      itemBuilder: (context) => [
+        const PopupMenuItem(
+          value: _AccountAction.profile,
+          child: _MenuItem(icon: Icons.person_rounded, label: 'Profil'),
+        ),
+        const PopupMenuItem(
+          value: _AccountAction.editProfile,
+          child: _MenuItem(icon: Icons.edit_rounded, label: 'Düzenle'),
+        ),
+        const PopupMenuItem(
+          value: _AccountAction.friends,
+          child: _MenuItem(icon: Icons.people_rounded, label: 'Arkadaşlar'),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
+          value: _AccountAction.signOut,
+          child: _MenuItem(icon: Icons.logout_rounded, label: 'Çıkış Yap'),
+        ),
+      ],
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${AppDateUtils.greeting()},',
+                  style: GoogleFonts.poppins(
+                    fontSize: 16,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                Text(
+                  '$safeName!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.primaryAccent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          CircleAvatar(
+            radius: 22,
+            backgroundColor: AppTheme.primaryAccent.withAlpha(40),
+            backgroundImage: avatarUrl.isNotEmpty
+                ? NetworkImage(avatarUrl)
+                : null,
+            child: avatarUrl.isEmpty
+                ? Text(
+                    safeName[0].toUpperCase(),
+                    style: GoogleFonts.poppins(
+                      color: AppTheme.primaryAccent,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.expand_more_rounded, color: AppTheme.textSecondary),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _MenuItem({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: AppTheme.textSecondary, size: 20),
+        const SizedBox(width: 10),
+        Text(label, style: GoogleFonts.poppins(color: AppTheme.textWhite)),
+      ],
+    );
+  }
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
@@ -70,6 +179,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         uid: authUser.uid,
         displayName: authUser.displayName ?? '',
         email: authUser.email ?? '',
+        avatarUrl: authUser.photoURL ?? '',
       );
       if (!mounted) return;
 
@@ -169,21 +279,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Greeting
-                  Text(
-                    '${AppDateUtils.greeting()},',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    '${user.displayName}! 👋',
-                    style: GoogleFonts.poppins(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w700,
-                      color: AppTheme.primaryAccent,
-                    ),
+                  _AccountHeader(
+                    displayName: user.displayName,
+                    avatarUrl: user.avatarUrl,
+                    onSelected: (action) => _handleAccountAction(action),
                   ),
                   const SizedBox(height: 32),
 
@@ -337,6 +436,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return 'Haydi harekete geç! 💪';
   }
 
+  Future<void> _handleAccountAction(_AccountAction action) async {
+    switch (action) {
+      case _AccountAction.profile:
+        context.push('/profile');
+        break;
+      case _AccountAction.editProfile:
+        context.push('/profile/edit');
+        break;
+      case _AccountAction.friends:
+        context.push('/friends');
+        break;
+      case _AccountAction.signOut:
+        await ref.read(authServiceProvider).signOut();
+        if (mounted) context.go('/login');
+        break;
+    }
+  }
+
   String _energySubtitle(String level) {
     switch (level) {
       case 'Yüksek':
@@ -387,7 +504,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         {'stepCount': steps},
       );
       if (addedSteps > 0) {
-        await ref.read(socialServiceProvider).incrementChallengeProgress('steps', addedSteps);
+        await ref
+            .read(socialServiceProvider)
+            .incrementChallengeProgress('steps', addedSteps);
       }
     } catch (e) {
       debugPrint('Live step Firestore sync error: $e');
@@ -438,16 +557,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       final uid = ref.read(authStateProvider).valueOrNull?.uid;
       if (uid == null) return;
       final today = AppDateUtils.todayKey();
-      
+
       final oldLog = ref.read(todayLogProvider).valueOrNull;
       int addedSteps = result - (oldLog?.stepCount ?? 0);
-      
+
       await FirestoreService.instance.updateDailyLog(uid, today, {
         'stepCount': result,
       });
 
       if (addedSteps > 0) {
-        await ref.read(socialServiceProvider).incrementChallengeProgress('steps', addedSteps);
+        await ref
+            .read(socialServiceProvider)
+            .incrementChallengeProgress('steps', addedSteps);
       }
     }
   }
@@ -459,9 +580,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await FirestoreService.instance.updateDailyLog(uid, today, {
       'waterGlasses': current + 1,
     });
-    
+
     // Topluluk hedefine yansıt (Water)
-    await ref.read(socialServiceProvider).incrementChallengeProgress('water', 1);
+    await ref
+        .read(socialServiceProvider)
+        .incrementChallengeProgress('water', 1);
 
     final user = ref.read(currentUserProvider).valueOrNull;
     if (user != null && current + 1 >= user.dailyGoals.waterGlasses) {

@@ -41,7 +41,7 @@ class ChallengeCard extends StatelessWidget {
         color: AppTheme.cardBackground,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: AppTheme.primaryAccent.withOpacity(0.3),
+          color: AppTheme.primaryAccent.withAlpha(77),
           width: 1.5,
         ),
       ),
@@ -103,7 +103,9 @@ class ChallengeCard extends StatelessWidget {
             child: LinearProgressIndicator(
               value: progress,
               backgroundColor: AppTheme.background,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryAccent),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppTheme.primaryAccent,
+              ),
               minHeight: 8,
             ),
           ),
@@ -113,10 +115,12 @@ class ChallengeCard extends StatelessWidget {
             child: ElevatedButton(
               onPressed: _onJoinPressed,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isParticipating ? AppTheme.cardBackground : AppTheme.primaryAccent,
+                backgroundColor: isParticipating
+                    ? AppTheme.cardBackground
+                    : AppTheme.primaryAccent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
-                  side: isParticipating 
+                  side: isParticipating
                       ? BorderSide(color: AppTheme.primaryAccent, width: 1.5)
                       : BorderSide.none,
                 ),
@@ -125,7 +129,9 @@ class ChallengeCard extends StatelessWidget {
               child: Text(
                 isParticipating ? 'Ayrıl' : 'Katıl / Destek Ol',
                 style: GoogleFonts.poppins(
-                  color: isParticipating ? AppTheme.primaryAccent : AppTheme.background,
+                  color: isParticipating
+                      ? AppTheme.primaryAccent
+                      : AppTheme.background,
                   fontWeight: FontWeight.bold,
                   fontSize: 14,
                 ),

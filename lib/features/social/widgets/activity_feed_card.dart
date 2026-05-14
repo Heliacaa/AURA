@@ -12,6 +12,7 @@ class ActivityFeedCard extends StatelessWidget {
   final bool isSpecialAchievement; // Animasyonlu stili tetikler
   final bool isLikedByMe;
   final VoidCallback? onLikePressed;
+  final VoidCallback? onUserTap;
 
   const ActivityFeedCard({
     super.key,
@@ -23,6 +24,7 @@ class ActivityFeedCard extends StatelessWidget {
     this.isSpecialAchievement = false,
     this.isLikedByMe = false,
     this.onLikePressed,
+    this.onUserTap,
   });
 
   void _onLikePressed() {
@@ -34,6 +36,8 @@ class ActivityFeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeUserName = userName.isNotEmpty ? userName : 'AURA User';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -46,24 +50,27 @@ class ActivityFeedCard extends StatelessWidget {
         boxShadow: isSpecialAchievement
             ? [
                 BoxShadow(
-                  color: Colors.amberAccent.withOpacity(0.1),
+                  color: Colors.amberAccent.withAlpha(26),
                   blurRadius: 10,
                   spreadRadius: 2,
-                )
+                ),
               ]
             : [],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            backgroundColor: AppTheme.primaryAccent,
-            radius: 20,
-            child: Text(
-              userName[0].toUpperCase(),
-              style: GoogleFonts.poppins(
-                color: AppTheme.background,
-                fontWeight: FontWeight.bold,
+          GestureDetector(
+            onTap: onUserTap,
+            child: CircleAvatar(
+              backgroundColor: AppTheme.primaryAccent,
+              radius: 20,
+              child: Text(
+                safeUserName[0].toUpperCase(),
+                style: GoogleFonts.poppins(
+                  color: AppTheme.background,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -75,12 +82,15 @@ class ActivityFeedCard extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      userName,
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.textWhite,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                    GestureDetector(
+                      onTap: onUserTap,
+                      child: Text(
+                        safeUserName,
+                        style: GoogleFonts.poppins(
+                          color: AppTheme.textWhite,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
                       ),
                     ),
                     Text(
@@ -122,20 +132,26 @@ class ActivityFeedCard extends StatelessWidget {
                       Icon(
                         isLikedByMe ? Icons.favorite : Icons.favorite_border,
                         size: 16,
-                        color: isLikedByMe ? Colors.redAccent : AppTheme.textSecondary,
+                        color: isLikedByMe
+                            ? Colors.redAccent
+                            : AppTheme.textSecondary,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         isLikedByMe ? "Tebrik Ettin" : "Tebrik Et",
                         style: GoogleFonts.poppins(
-                          color: isLikedByMe ? Colors.redAccent : AppTheme.textSecondary,
+                          color: isLikedByMe
+                              ? Colors.redAccent
+                              : AppTheme.textSecondary,
                           fontSize: 12,
-                          fontWeight: isLikedByMe ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isLikedByMe
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     ],
                   ),
-                )
+                ),
               ],
             ),
           ),

@@ -19,8 +19,10 @@ class HomeActiveChallenges extends ConsumerWidget {
     return challengesAsync.when(
       data: (challenges) {
         // Sadece kullanıcının katıldığı(participant olduğu) meydan okumaları filtrele
-        final activeChallenges = challenges.where((c) => c.participants.contains(currentUserId)).toList();
-        
+        final activeChallenges = challenges
+            .where((c) => c.participants.contains(currentUserId))
+            .toList();
+
         if (activeChallenges.isEmpty) {
           return const SizedBox.shrink(); // Katıldığınız hedef yoksa ekranda yer kaplamasın.
         }
@@ -37,7 +39,8 @@ class HomeActiveChallenges extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            ...activeChallenges.map((challenge) => ChallengeCard(
+            ...activeChallenges.map(
+              (challenge) => ChallengeCard(
                 title: challenge.title,
                 // description: challenge.description, (Topluluk hedeflerinde ana ekranda kısaltabilir veya kendi açıklamanızı basabilirsiniz)
                 description: challenge.description,
@@ -48,7 +51,9 @@ class HomeActiveChallenges extends ConsumerWidget {
                 isParticipating: true,
                 onJoinPressed: () {
                   // Tıklandığında ayrılmasını sağlar. (Ayrılınca bu widget ekrandan yeniden build ile kaybolur)
-                  ref.read(socialServiceProvider).toggleChallengeParticipation(challenge.id);
+                  ref
+                      .read(socialServiceProvider)
+                      .toggleChallengeParticipation(challenge.id);
                 },
               ),
             ),
@@ -57,7 +62,7 @@ class HomeActiveChallenges extends ConsumerWidget {
         );
       },
       loading: () => const SizedBox.shrink(),
-      error: (_, __) => const SizedBox.shrink(),
+      error: (error, stackTrace) => const SizedBox.shrink(),
     );
   }
 }

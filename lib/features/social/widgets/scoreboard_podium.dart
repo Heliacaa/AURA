@@ -7,12 +7,14 @@ class ScoreboardPodium extends StatelessWidget {
   final List<Map<String, dynamic>> topEntries;
   final String? currentUid;
   final String Function(Map<String, dynamic>) getValue;
+  final ValueChanged<Map<String, dynamic>>? onEntryTap;
 
   const ScoreboardPodium({
     super.key,
     required this.topEntries,
     required this.currentUid,
     required this.getValue,
+    this.onEntryTap,
   });
 
   @override
@@ -43,71 +45,80 @@ class ScoreboardPodium extends StatelessWidget {
   }
 
   Widget _buildPodiumItem(
-      Map<String, dynamic> entry, int rank, double height, Color rankColor) {
+    Map<String, dynamic> entry,
+    int rank,
+    double height,
+    Color rankColor,
+  ) {
     final displayName = entry['displayName'] as String? ?? 'User';
     final safeName = displayName.isNotEmpty ? displayName : 'User';
-    final isMe = entry['uid'] == currentUid || (entry['isMe'] as bool? ?? false);
+    final isMe =
+        entry['uid'] == currentUid || (entry['isMe'] as bool? ?? false);
     final value = getValue(entry);
 
     return Expanded(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          CircleAvatar(
-            backgroundColor:
-                isMe ? AppTheme.primaryAccent : AppTheme.textSecondary,
-            radius: rank == 1 ? 28 : 22,
-            child: Text(
-              safeName[0].toUpperCase(),
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-                fontSize: rank == 1 ? 24 : 18,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            safeName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              color: AppTheme.textWhite,
-              fontWeight: isMe ? FontWeight.w700 : FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              color: AppTheme.primaryAccent,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Container(
-            height: height,
-            decoration: BoxDecoration(
-              color: rankColor.withAlpha(rank == 1 ? 80 : 40),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(8),
-                topRight: Radius.circular(8),
-              ),
-              border: Border.all(color: rankColor.withAlpha(100), width: 1),
-            ),
-            child: Center(
+      child: GestureDetector(
+        onTap: onEntryTap == null ? null : () => onEntryTap!(entry),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            CircleAvatar(
+              backgroundColor: isMe
+                  ? AppTheme.primaryAccent
+                  : AppTheme.textSecondary,
+              radius: rank == 1 ? 28 : 22,
               child: Text(
-                '#$rank',
+                safeName[0].toUpperCase(),
                 style: GoogleFonts.poppins(
-                  color: rankColor,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: rank == 1 ? 24 : 18,
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              safeName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.poppins(
+                color: AppTheme.textWhite,
+                fontWeight: isMe ? FontWeight.w700 : FontWeight.w600,
+                fontSize: 12,
+              ),
+            ),
+            Text(
+              value,
+              style: GoogleFonts.poppins(
+                color: AppTheme.primaryAccent,
+                fontWeight: FontWeight.w700,
+                fontSize: 12,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: height,
+              decoration: BoxDecoration(
+                color: rankColor.withAlpha(rank == 1 ? 80 : 40),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(8),
+                  topRight: Radius.circular(8),
+                ),
+                border: Border.all(color: rankColor.withAlpha(100), width: 1),
+              ),
+              child: Center(
+                child: Text(
+                  '#$rank',
+                  style: GoogleFonts.poppins(
+                    color: rankColor,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

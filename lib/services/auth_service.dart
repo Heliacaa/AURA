@@ -65,13 +65,23 @@ class AuthService {
 
     final userCredential = await _auth.signInWithCredential(credential);
 
-    // Create Firestore doc on first login
-    if (userCredential.additionalUserInfo?.isNewUser ?? false) {
-      await FirestoreService.instance.createUserDoc(
-        uid: userCredential.user!.uid,
-        displayName: userCredential.user!.displayName ?? '',
-        email: userCredential.user!.email ?? '',
-      );
+    final user = userCredential.user;
+    if (user != null) {
+      if (userCredential.additionalUserInfo?.isNewUser ?? false) {
+        await FirestoreService.instance.createUserDoc(
+          uid: user.uid,
+          displayName: user.displayName ?? '',
+          email: user.email ?? '',
+          avatarUrl: user.photoURL ?? '',
+        );
+      } else {
+        await FirestoreService.instance.ensureUserDoc(
+          uid: user.uid,
+          displayName: user.displayName ?? '',
+          email: user.email ?? '',
+          avatarUrl: user.photoURL ?? '',
+        );
+      }
     }
 
     return userCredential;

@@ -49,11 +49,11 @@ final leaderboardProvider = FutureProvider<List<Map<String, dynamic>>>((
 
   // Add friends
   for (final friend in friends) {
-    final stats = await FirestoreService.instance.getUserPublicStats(
-      friend.friendUid,
-    );
+    if (currentUser == null) continue;
+    final friendUid = friend.otherUid(currentUser.uid);
+    final stats = await FirestoreService.instance.getUserPublicStats(friendUid);
     if (stats != null) {
-      entries.add({...stats, 'uid': friend.friendUid, 'isMe': false});
+      entries.add({...stats, 'uid': friendUid, 'isMe': false});
     }
   }
 

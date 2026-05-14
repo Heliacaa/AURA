@@ -68,6 +68,14 @@ class DailyGoals {
     'calories': calories,
     'waterGlasses': waterGlasses,
   };
+
+  DailyGoals copyWith({int? steps, int? calories, int? waterGlasses}) {
+    return DailyGoals(
+      steps: steps ?? this.steps,
+      calories: calories ?? this.calories,
+      waterGlasses: waterGlasses ?? this.waterGlasses,
+    );
+  }
 }
 
 class UserModel {
@@ -76,6 +84,9 @@ class UserModel {
   final String email;
   final DateTime createdAt;
   final String avatarUrl;
+  final int? age;
+  final int? heightCm;
+  final double? weightKg;
   final int currentLevel;
   final String currentClass;
   final int xp;
@@ -96,6 +107,9 @@ class UserModel {
     required this.email,
     required this.createdAt,
     this.avatarUrl = '',
+    this.age,
+    this.heightCm,
+    this.weightKg,
     this.currentLevel = 1,
     this.currentClass = 'Novice',
     this.xp = 0,
@@ -119,6 +133,9 @@ class UserModel {
       email: data['email'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       avatarUrl: data['avatarUrl'] as String? ?? '',
+      age: (data['age'] as num?)?.toInt(),
+      heightCm: (data['heightCm'] as num?)?.toInt(),
+      weightKg: (data['weightKg'] as num?)?.toDouble(),
       currentLevel: (data['currentLevel'] as num?)?.toInt() ?? 1,
       currentClass: data['currentClass'] as String? ?? 'Novice',
       xp: (data['xp'] as num?)?.toInt() ?? 0,
@@ -143,8 +160,12 @@ class UserModel {
   Map<String, dynamic> toFirestore() => {
     'displayName': displayName,
     'email': email,
+    'emailLower': email.toLowerCase(),
     'createdAt': Timestamp.fromDate(createdAt),
     'avatarUrl': avatarUrl,
+    if (age != null) 'age': age,
+    if (heightCm != null) 'heightCm': heightCm,
+    if (weightKg != null) 'weightKg': weightKg,
     'currentLevel': currentLevel,
     'currentClass': currentClass,
     'xp': xp,
@@ -163,6 +184,9 @@ class UserModel {
   UserModel copyWith({
     String? displayName,
     String? avatarUrl,
+    Object? age = _sentinel,
+    Object? heightCm = _sentinel,
+    Object? weightKg = _sentinel,
     int? currentLevel,
     String? currentClass,
     int? xp,
@@ -183,6 +207,9 @@ class UserModel {
       email: email,
       createdAt: createdAt,
       avatarUrl: avatarUrl ?? this.avatarUrl,
+      age: age == _sentinel ? this.age : age as int?,
+      heightCm: heightCm == _sentinel ? this.heightCm : heightCm as int?,
+      weightKg: weightKg == _sentinel ? this.weightKg : weightKg as double?,
       currentLevel: currentLevel ?? this.currentLevel,
       currentClass: currentClass ?? this.currentClass,
       xp: xp ?? this.xp,
@@ -275,3 +302,5 @@ class UserModel {
     return levelThresholds[level];
   }
 }
+
+const Object _sentinel = Object();

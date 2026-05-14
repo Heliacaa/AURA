@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -165,7 +166,9 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
           children: [
             Icon(
               enabled ? Icons.visibility : Icons.visibility_off,
-              color: enabled ? AppTheme.secondaryAccent : AppTheme.warningOrange,
+              color: enabled
+                  ? AppTheme.secondaryAccent
+                  : AppTheme.warningOrange,
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -199,7 +202,7 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
                 try {
                   await FirestoreService.instance.setLeaderboardOptIn(
                     currentUser.uid,
-                     value,
+                    value,
                   );
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -285,6 +288,10 @@ class _WeeklyLeagueList extends ConsumerWidget {
               topEntries: topEntries,
               currentUid: currentUid,
               getValue: (e) => '${e['weeklyXp'] ?? 0} XP',
+              onEntryTap: (entry) {
+                final uid = entry['uid'] as String? ?? '';
+                if (uid.isNotEmpty) context.push('/public-profile/$uid');
+              },
             ),
             Expanded(
               child: ListView.builder(
@@ -295,12 +302,14 @@ class _WeeklyLeagueList extends ConsumerWidget {
                   final rank = index + 4;
                   final isMe = entry['uid'] == currentUid;
                   return _LeaderboardEntryTile(
+                    uid: entry['uid'] as String? ?? '',
                     rank: rank,
                     isMe: isMe,
                     displayName: entry['displayName'] as String? ?? '',
                     subtitle:
                         'Lv.${entry['currentLevel'] ?? 1} ${entry['currentClass'] ?? 'Novice'}',
                     value: '${entry['weeklyXp'] ?? 0} XP',
+                    onTap: (uid) => context.push('/public-profile/$uid'),
                   );
                 },
               ),
@@ -372,6 +381,10 @@ class _FriendsLeaderboardList extends ConsumerWidget {
               topEntries: topEntries,
               currentUid: null,
               getValue: (e) => _sortValue(e, sortMode),
+              onEntryTap: (entry) {
+                final uid = entry['uid'] as String? ?? '';
+                if (uid.isNotEmpty) context.push('/public-profile/$uid');
+              },
             ),
             Expanded(
               child: ListView.builder(
@@ -382,11 +395,14 @@ class _FriendsLeaderboardList extends ConsumerWidget {
                   final rank = index + 4;
                   final isMe = entry['isMe'] as bool? ?? false;
                   return _LeaderboardEntryTile(
+                    uid: entry['uid'] as String? ?? '',
                     rank: rank,
                     isMe: isMe,
                     displayName: entry['displayName'] as String? ?? '',
-                    subtitle: 'Lv.${entry['currentLevel']} ${entry['currentClass']}',
+                    subtitle:
+                        'Lv.${entry['currentLevel']} ${entry['currentClass']}',
                     value: _sortValue(entry, sortMode),
+                    onTap: (uid) => context.push('/public-profile/$uid'),
                   );
                 },
               ),
@@ -417,97 +433,104 @@ class _FriendsLeaderboardList extends ConsumerWidget {
 }
 
 class _LeaderboardEntryTile extends StatelessWidget {
+  final String uid;
   final int rank;
   final bool isMe;
   final String displayName;
   final String subtitle;
   final String value;
+  final ValueChanged<String>? onTap;
 
   const _LeaderboardEntryTile({
+    required this.uid,
     required this.rank,
     required this.isMe,
     required this.displayName,
     required this.subtitle,
     required this.value,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final safeName = displayName.isNotEmpty ? displayName : 'AURA User';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: isMe
-            ? AppTheme.primaryAccent.withAlpha(30)
-            : AppTheme.cardBackground,
-        borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
-        border: isMe
-            ? Border.all(color: AppTheme.primaryAccent, width: 1)
-            : null,
-      ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 32,
-            child: Text(
-              '#$rank',
+    return GestureDetector(
+      onTap: uid.isEmpty || onTap == null ? null : () => onTap!(uid),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isMe
+              ? AppTheme.primaryAccent.withAlpha(30)
+              : AppTheme.cardBackground,
+          borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+          border: isMe
+              ? Border.all(color: AppTheme.primaryAccent, width: 1)
+              : null,
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 32,
+              child: Text(
+                '#$rank',
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: rank <= 3
+                      ? AppTheme.warningOrange
+                      : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            CircleAvatar(
+              backgroundColor: isMe
+                  ? AppTheme.primaryAccent
+                  : AppTheme.textSecondary,
+              radius: 18,
+              child: Text(
+                safeName[0].toUpperCase(),
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isMe ? '$safeName (Sen)' : safeName,
+                    style: GoogleFonts.poppins(
+                      color: AppTheme.textWhite,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.poppins(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Text(
+              value,
               style: GoogleFonts.poppins(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
-                color: rank <= 3
-                    ? AppTheme.warningOrange
-                    : AppTheme.textSecondary,
+                color: AppTheme.primaryAccent,
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          CircleAvatar(
-            backgroundColor: isMe
-                ? AppTheme.primaryAccent
-                : AppTheme.textSecondary,
-            radius: 18,
-            child: Text(
-              safeName[0].toUpperCase(),
-              style: GoogleFonts.poppins(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  isMe ? '$safeName (Sen)' : safeName,
-                  style: GoogleFonts.poppins(
-                    color: AppTheme.textWhite,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: GoogleFonts.poppins(
-                    color: AppTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppTheme.primaryAccent,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

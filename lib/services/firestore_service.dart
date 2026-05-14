@@ -32,8 +32,10 @@ class FirestoreService {
   CollectionReference _achievements(String uid) =>
       _userDoc(uid).collection('achievements');
 
-  CollectionReference _friends(String uid) =>
-      _userDoc(uid).collection('friends');
+  CollectionReference _friendships() => _db.collection('friendships');
+
+  DocumentReference _publicProfile(String uid) =>
+      _db.collection('publicProfiles').doc(uid);
 
   CollectionReference _leaderboardEntries(String weekKey) =>
       _db.collection('leaderboards').doc(weekKey).collection('entries');
@@ -48,15 +50,20 @@ class FirestoreService {
     required String uid,
     required String displayName,
     required String email,
+    String avatarUrl = '',
   }) async {
     final user = UserModel(
       uid: uid,
       displayName: displayName,
       email: email,
+      avatarUrl: avatarUrl,
       createdAt: DateTime.now(),
       lastActiveDate: DateTime.now(),
     );
-    await _userDoc(uid).set(user.toFirestore());
+    final batch = _db.batch();
+    batch.set(_userDoc(uid), user.toFirestore());
+    batch.set(_publicProfile(uid), _publicProfileData(user));
+    await batch.commit();
   }
 
   /// Ensure user document exists — create if missing
@@ -64,10 +71,43 @@ class FirestoreService {
     required String uid,
     required String displayName,
     required String email,
+    String avatarUrl = '',
   }) async {
     final doc = await _userDoc(uid).get();
     if (!doc.exists) {
-      await createUserDoc(uid: uid, displayName: displayName, email: email);
+      await createUserDoc(
+        uid: uid,
+        displayName: displayName,
+        email: email,
+        avatarUrl: avatarUrl,
+      );
+      return;
+    }
+
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    final updates = <String, dynamic>{};
+    if ((data['displayName'] as String? ?? '').isEmpty &&
+        displayName.isNotEmpty) {
+      updates['displayName'] = displayName;
+    }
+    if ((data['email'] as String? ?? '').isEmpty && email.isNotEmpty) {
+      updates['email'] = email;
+    }
+    if ((data['avatarUrl'] as String? ?? '').isEmpty && avatarUrl.isNotEmpty) {
+      updates['avatarUrl'] = avatarUrl;
+    }
+    if ((data['emailLower'] as String? ?? '').isEmpty && email.isNotEmpty) {
+      updates['emailLower'] = email.toLowerCase();
+    }
+    if (updates.isNotEmpty) {
+      await _userDoc(uid).update(updates);
+    }
+    final refreshed = await _userDoc(uid).get();
+    if (refreshed.exists) {
+      await _publicProfile(uid).set(
+        _publicProfileData(UserModel.fromFirestore(refreshed)),
+        SetOptions(merge: true),
+      );
     }
   }
 
@@ -82,6 +122,36 @@ class FirestoreService {
   /// Update user fields
   Future<void> updateUser(String uid, Map<String, dynamic> data) async {
     await _userDoc(uid).update(data);
+  }
+
+  Future<void> updateProfileSettings({
+    required String uid,
+    required String displayName,
+    required int? age,
+    required int? heightCm,
+    required double? weightKg,
+    required DailyGoals dailyGoals,
+    required String socialEnergyLevel,
+    required bool leaderboardOptIn,
+  }) async {
+    await _userDoc(uid).update({
+      'displayName': displayName,
+      'age': age,
+      'heightCm': heightCm,
+      'weightKg': weightKg,
+      'dailyGoals': dailyGoals.toMap(),
+      'socialEnergyLevel': socialEnergyLevel,
+    });
+
+    final doc = await _userDoc(uid).get();
+    if (doc.exists) {
+      await _publicProfile(uid).set(
+        _publicProfileData(UserModel.fromFirestore(doc)),
+        SetOptions(merge: true),
+      );
+    }
+
+    await setLeaderboardOptIn(uid, leaderboardOptIn);
   }
 
   /// Atomic XP and stat update using transaction
@@ -146,6 +216,19 @@ class FirestoreService {
         'weeklyXpWeek': weeklyXpWeek,
         'stats': updatedStats,
       });
+
+      transaction.set(_publicProfile(uid), {
+        'uid': uid,
+        'displayName': data['displayName'] ?? '',
+        'avatarUrl': data['avatarUrl'] ?? '',
+        'currentLevel': currentLevel,
+        'currentClass': newClass,
+        'xp': currentXp,
+        'streakDays': data['streakDays'] ?? 0,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
 
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
@@ -242,6 +325,19 @@ class FirestoreService {
         'stats': updatedStats,
       });
 
+      transaction.set(_publicProfile(uid), {
+        'uid': uid,
+        'displayName': userData['displayName'] ?? '',
+        'avatarUrl': userData['avatarUrl'] ?? '',
+        'currentLevel': currentLevel,
+        'currentClass': newClass,
+        'xp': currentXp,
+        'streakDays': userData['streakDays'] ?? 0,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
+
       if (leaderboardOptIn) {
         transaction.set(leaderboardRef, {
           'uid': uid,
@@ -295,6 +391,11 @@ class FirestoreService {
         'streakDays': newStreak,
         'lastActiveDate': Timestamp.fromDate(now),
       });
+      transaction.set(_publicProfile(uid), {
+        'uid': uid,
+        'streakDays': newStreak,
+        'updatedAt': Timestamp.fromDate(now),
+      }, SetOptions(merge: true));
     });
   }
 
@@ -453,90 +554,43 @@ class FirestoreService {
 
   // ─── Friends ──────────────────────────────────────────────
 
-  /// Send friend request
-  Future<void> sendFriendRequest({
-    required String fromUid,
-    required String fromName,
-    required String fromEmail,
-    required String toUid,
-    required String toName,
-    required String toEmail,
-  }) async {
-    final now = DateTime.now();
-    // Add to sender's friends list
-    await _friends(fromUid)
-        .doc(toUid)
-        .set(
-          FriendshipModel(
-            friendUid: toUid,
-            friendName: toName,
-            friendEmail: toEmail,
-            status: 'pending',
-            createdAt: now,
-          ).toFirestore(),
-        );
-    // Add to receiver's friends list
-    await _friends(toUid)
-        .doc(fromUid)
-        .set(
-          FriendshipModel(
-            friendUid: fromUid,
-            friendName: fromName,
-            friendEmail: fromEmail,
-            status: 'pending',
-            createdAt: now,
-          ).toFirestore(),
-        );
+  Stream<List<FriendshipModel>> friendshipsStream(String uid) {
+    return _friendships()
+        .where('participantUids', arrayContains: uid)
+        .snapshots()
+        .map((snap) {
+          final items = snap.docs
+              .map((doc) => FriendshipModel.fromFirestore(doc))
+              .toList();
+          items.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+          return items;
+        });
   }
 
-  /// Accept friend request
-  Future<void> acceptFriendRequest(String uid, String friendUid) async {
-    await _friends(uid).doc(friendUid).update({'status': 'accepted'});
-    await _friends(friendUid).doc(uid).update({'status': 'accepted'});
-  }
-
-  /// Decline / remove friend
-  Future<void> removeFriend(String uid, String friendUid) async {
-    await _friends(uid).doc(friendUid).delete();
-    await _friends(friendUid).doc(uid).delete();
-  }
-
-  /// Stream accepted friends
+  /// Stream accepted friends.
   Stream<List<FriendshipModel>> friendsStream(String uid) {
-    return _friends(uid)
-        .where('status', isEqualTo: 'accepted')
-        .snapshots()
-        .map(
-          (snap) =>
-              snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList(),
-        );
+    return friendshipsStream(
+      uid,
+    ).map((items) => items.where((item) => item.isAccepted).toList());
   }
 
-  /// Stream pending friend requests (received)
+  /// Stream pending friend requests received by the current user.
   Stream<List<FriendshipModel>> friendRequestsStream(String uid) {
-    return _friends(uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map(
-          (snap) =>
-              snap.docs.map((d) => FriendshipModel.fromFirestore(d)).toList(),
-        );
+    return friendshipsStream(
+      uid,
+    ).map((items) => items.where((item) => item.isIncomingFor(uid)).toList());
   }
 
-  /// Search user by email
-  Future<UserModel?> findUserByEmail(String email) async {
-    final snap = await _db
-        .collection('users')
-        .where('email', isEqualTo: email)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return UserModel.fromFirestore(snap.docs.first);
+  /// Stream pending friend requests sent by the current user.
+  Stream<List<FriendshipModel>> sentFriendRequestsStream(String uid) {
+    return friendshipsStream(
+      uid,
+    ).map((items) => items.where((item) => item.isOutgoingFor(uid)).toList());
   }
 
   /// Get a user's public stats for leaderboard
   Future<Map<String, dynamic>?> getUserPublicStats(String uid) async {
-    final doc = await _userDoc(uid).get();
+    final doc = await _publicProfile(uid).get();
     if (!doc.exists) return null;
     final data = doc.data() as Map<String, dynamic>? ?? {};
     return {
@@ -545,6 +599,8 @@ class FirestoreService {
       'xp': data['xp'] ?? 0,
       'streakDays': data['streakDays'] ?? 0,
       'currentClass': data['currentClass'] ?? 'Novice',
+      'weeklyXp': data['weeklyXp'] ?? 0,
+      'weeklyXpWeek': data['weeklyXpWeek'] ?? '',
     };
   }
 
@@ -573,6 +629,19 @@ class FirestoreService {
         'weeklyXp': weeklyXp,
         'weeklyXpWeek': weeklyXpWeek,
       });
+
+      transaction.set(_publicProfile(uid), {
+        'uid': uid,
+        'displayName': data['displayName'] ?? '',
+        'avatarUrl': data['avatarUrl'] ?? '',
+        'currentLevel': data['currentLevel'] ?? 1,
+        'currentClass': data['currentClass'] ?? 'Novice',
+        'xp': data['xp'] ?? 0,
+        'streakDays': data['streakDays'] ?? 0,
+        'weeklyXp': weeklyXp,
+        'weeklyXpWeek': weeklyXpWeek,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      }, SetOptions(merge: true));
 
       if (enabled) {
         transaction.set(leaderboardRef, {
@@ -673,4 +742,17 @@ class FirestoreService {
           (snap) => snap.docs.map((d) => MealModel.fromFirestore(d)).toList(),
         );
   }
+
+  Map<String, dynamic> _publicProfileData(UserModel user) => {
+    'uid': user.uid,
+    'displayName': user.displayName,
+    'avatarUrl': user.avatarUrl,
+    'currentLevel': user.currentLevel,
+    'currentClass': user.currentClass,
+    'xp': user.xp,
+    'streakDays': user.streakDays,
+    'weeklyXp': user.weeklyXp,
+    'weeklyXpWeek': user.weeklyXpWeek,
+    'updatedAt': Timestamp.fromDate(DateTime.now()),
+  };
 }

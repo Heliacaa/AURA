@@ -76,6 +76,14 @@ void main() {
       expect(goals.calories, 2000);
       expect(goals.waterGlasses, 8);
     });
+
+    test('copyWith overrides selected goals', () {
+      const goals = DailyGoals(steps: 10000, calories: 2000, waterGlasses: 8);
+      final updated = goals.copyWith(calories: 1800);
+      expect(updated.steps, 10000);
+      expect(updated.calories, 1800);
+      expect(updated.waterGlasses, 8);
+    });
   });
 
   group('UserModel', () {
@@ -88,6 +96,9 @@ void main() {
         email: 'test@example.com',
         createdAt: DateTime(2024, 1, 1),
         lastActiveDate: DateTime(2024, 6, 1),
+        age: 29,
+        heightCm: 178,
+        weightKg: 74.5,
         currentLevel: 5,
         currentClass: 'Warrior',
         xp: 5000,
@@ -168,12 +179,26 @@ void main() {
       expect(updated.xp, 9999);
       expect(updated.uid, 'test-uid');
       expect(updated.email, 'test@example.com');
+      expect(updated.age, 29);
+      expect(updated.heightCm, 178);
+      expect(updated.weightKg, 74.5);
+    });
+
+    test('copyWith can clear optional private profile fields', () {
+      final updated = user.copyWith(age: null, heightCm: null, weightKg: null);
+      expect(updated.age, isNull);
+      expect(updated.heightCm, isNull);
+      expect(updated.weightKg, isNull);
     });
 
     test('toFirestore serializes correctly', () {
       final map = user.toFirestore();
       expect(map['displayName'], 'Test User');
       expect(map['email'], 'test@example.com');
+      expect(map['emailLower'], 'test@example.com');
+      expect(map['age'], 29);
+      expect(map['heightCm'], 178);
+      expect(map['weightKg'], 74.5);
       expect(map['currentLevel'], 5);
       expect(map['currentClass'], 'Warrior');
       expect(map['xp'], 5000);
