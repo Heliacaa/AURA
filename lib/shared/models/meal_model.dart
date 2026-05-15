@@ -39,15 +39,15 @@ class MealModel {
   }
 
   Map<String, dynamic> toFirestore() => {
-        'timestamp': Timestamp.fromDate(timestamp),
-        'imageUrl': imageUrl,
-        'detectedFood': detectedFood,
-        'calories': calories,
-        'protein': protein,
-        'carbs': carbs,
-        'fat': fat,
-        'aiAdvice': aiAdvice,
-      };
+    'timestamp': Timestamp.fromDate(timestamp),
+    'imageUrl': imageUrl,
+    'detectedFood': detectedFood,
+    'calories': calories,
+    'protein': protein,
+    'carbs': carbs,
+    'fat': fat,
+    'aiAdvice': aiAdvice,
+  };
 
   factory MealModel.fromJson(Map<String, dynamic> json) {
     return MealModel(
@@ -61,10 +61,10 @@ class MealModel {
     );
   }
 
-  MealModel copyWith({String? imageUrl}) {
+  MealModel copyWith({String? imageUrl, DateTime? timestamp}) {
     return MealModel(
       id: id,
-      timestamp: timestamp,
+      timestamp: timestamp ?? this.timestamp,
       imageUrl: imageUrl ?? this.imageUrl,
       detectedFood: detectedFood,
       calories: calories,

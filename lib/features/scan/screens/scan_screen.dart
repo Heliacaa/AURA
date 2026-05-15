@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_utils.dart';
+import '../../../shared/models/meal_model.dart';
 import '../../../shared/widgets/aura_card.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../home/providers/home_provider.dart';
@@ -98,7 +100,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     final uid = ref.read(authStateProvider).valueOrNull?.uid;
 
     if (image == null || result == null || uid == null) return;
-    
+
     ref.read(scanSavingProvider.notifier).state = true;
 
     try {
@@ -116,18 +118,28 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
         // İsteğe bağlı olarak kullanıcıya küçük bir uyarı gösterebilirsiniz
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Resim Firebase\'e yüklenemedi ancak veriler kaydediliyor...')),
+            const SnackBar(
+              content: Text(
+                'Resim Firebase\'e yüklenemedi ancak veriler kaydediliyor...',
+              ),
+            ),
           );
         }
       }
 
       // Save meal with image URL
       debugPrint('Firestore kaydı yapılıyor...');
-      final meal = result.copyWith(imageUrl: imageUrl);
-      await FirestoreService.instance.saveMeal(uid, meal).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () => throw Exception('Veritabanı kaydı zaman aşımına uğradı.'),
+      final meal = result.copyWith(
+        imageUrl: imageUrl,
+        timestamp: DateTime.now(),
       );
+      await FirestoreService.instance
+          .saveMeal(uid, meal)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () =>
+                throw Exception('Veritabanı kaydı zaman aşımına uğradı.'),
+          );
       debugPrint('Firestore kaydı tamamlandı.');
 
       // Award XP
@@ -139,9 +151,9 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Yemek kaydedildi! 🎉')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Yemek kaydedildi! 🎉')));
       }
 
       // Reset state
@@ -156,6 +168,200 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     } finally {
       ref.read(scanSavingProvider.notifier).state = false;
     }
+  }
+
+  Widget _mealImage(MealModel meal, {double? height, IconData? fallbackIcon}) {
+    Widget fallback() {
+      return Container(
+        width: double.infinity,
+        height: height,
+        color: Colors.grey.withAlpha(30),
+        child: Icon(
+          fallbackIcon ?? Icons.fastfood_rounded,
+          color: Colors.grey,
+          size: height == null ? 36 : 48,
+        ),
+      );
+    }
+
+    if (meal.imageUrl.isEmpty) return fallback();
+
+    return Image.network(
+      meal.imageUrl,
+      width: double.infinity,
+      height: height,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) => fallback(),
+    );
+  }
+
+  void _showPastScanDetails(MealModel meal) {
+    final savedDate = AppDateUtils.formatDayMonthYear(meal.timestamp);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return SafeArea(
+          top: false,
+          child: Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+            ),
+            decoration: const BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 44,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withAlpha(35),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              meal.detectedFood.isEmpty
+                                  ? 'Taranan yemek'
+                                  : meal.detectedFood,
+                              style: GoogleFonts.poppins(
+                                fontSize: 22,
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.textWhite,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Kaydedildi: $savedDate',
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.secondaryAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.close_rounded),
+                        color: AppTheme.textSecondary,
+                        tooltip: 'Kapat',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(
+                      AppTheme.cardBorderRadius,
+                    ),
+                    child: _mealImage(meal, height: 220),
+                  ),
+                  const SizedBox(height: 18),
+                  _ScanDetailRow(
+                    icon: Icons.event_available_rounded,
+                    label: 'Kaydedildiği gün',
+                    value: savedDate,
+                  ),
+                  _ScanDetailRow(
+                    icon: Icons.local_fire_department_rounded,
+                    label: 'Kalori',
+                    value: '${meal.calories} kcal',
+                    iconColor: AppTheme.warningOrange,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MacroTile(
+                          label: 'Protein',
+                          value: '${meal.protein.toStringAsFixed(1)}g',
+                          color: AppTheme.secondaryAccent,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _MacroTile(
+                          label: 'Karb',
+                          value: '${meal.carbs.toStringAsFixed(1)}g',
+                          color: AppTheme.statBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _MacroTile(
+                          label: 'Yağ',
+                          value: '${meal.fat.toStringAsFixed(1)}g',
+                          color: AppTheme.statPink,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (meal.aiAdvice.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cardBackground,
+                        borderRadius: BorderRadius.circular(
+                          AppTheme.cardBorderRadius,
+                        ),
+                        border: Border(
+                          left: BorderSide(
+                            color: AppTheme.primaryAccent,
+                            width: AppTheme.cardLeftBorderWidth,
+                          ),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Icon(
+                            Icons.lightbulb_rounded,
+                            color: AppTheme.primaryAccent,
+                            size: 22,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              meal.aiAdvice,
+                              style: GoogleFonts.poppins(
+                                fontSize: 13,
+                                height: 1.45,
+                                color: AppTheme.textWhite,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -191,10 +397,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 height: 220,
                 decoration: BoxDecoration(
                   color: AppTheme.cardBackground,
-                  borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.cardBorderRadius,
+                  ),
                 ),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+                  borderRadius: BorderRadius.circular(
+                    AppTheme.cardBorderRadius,
+                  ),
                   child: Stack(
                     children: [
                       if (image != null)
@@ -208,8 +418,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('🍽️',
-                                  style: TextStyle(fontSize: 48)),
+                              const Text('🍽️', style: TextStyle(fontSize: 48)),
                               const SizedBox(height: 8),
                               Text(
                                 'Yemek fotoğrafı çekmek için dokun',
@@ -271,8 +480,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.camera_alt_rounded,
-                                color: Colors.white, size: 20),
+                            const Icon(
+                              Icons.camera_alt_rounded,
+                              color: Colors.white,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Fotoğraf Çek',
@@ -305,8 +517,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.photo_library_rounded,
-                                color: AppTheme.textSecondary, size: 20),
+                            const Icon(
+                              Icons.photo_library_rounded,
+                              color: AppTheme.textSecondary,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Text(
                               'Galeriden Seç',
@@ -332,7 +547,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 child: Column(
                   children: [
                     const CircularProgressIndicator(
-                        color: AppTheme.secondaryAccent),
+                      color: AppTheme.secondaryAccent,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       'Yemek analiz ediliyor...',
@@ -369,26 +585,29 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 borderColor: AppTheme.secondaryAccent,
               ),
               // Remaining budget indicator
-              Builder(builder: (context) {
-                final user = ref.watch(currentUserProvider).valueOrNull;
-                final todayMeals =
-                    ref.watch(todayMealsProvider).valueOrNull ?? [];
-                int consumed = 0;
-                for (final m in todayMeals) {
-                  consumed += m.calories;
-                }
-                final goal = user?.dailyGoals.calories ?? 2000;
-                final remaining = goal - consumed - result.calories;
-                final isOver = remaining < 0;
-                return AuraCard(
-                  emoji: isOver ? '⚠️' : '📊',
-                  title: isOver
-                      ? 'Bütçeyi ${-remaining} kcal aştın!'
-                      : 'Kalan: $remaining kcal',
-                  borderColor:
-                      isOver ? AppTheme.statRed : AppTheme.secondaryAccent,
-                );
-              }),
+              Builder(
+                builder: (context) {
+                  final user = ref.watch(currentUserProvider).valueOrNull;
+                  final todayMeals =
+                      ref.watch(todayMealsProvider).valueOrNull ?? [];
+                  int consumed = 0;
+                  for (final m in todayMeals) {
+                    consumed += m.calories;
+                  }
+                  final goal = user?.dailyGoals.calories ?? 2000;
+                  final remaining = goal - consumed - result.calories;
+                  final isOver = remaining < 0;
+                  return AuraCard(
+                    emoji: isOver ? '⚠️' : '📊',
+                    title: isOver
+                        ? 'Bütçeyi ${-remaining} kcal aştın!'
+                        : 'Kalan: $remaining kcal',
+                    borderColor: isOver
+                        ? AppTheme.statRed
+                        : AppTheme.secondaryAccent,
+                  );
+                },
+              ),
               AuraCard(
                 emoji: '📊',
                 title:
@@ -410,11 +629,14 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                   height: 52,
                   decoration: AppTheme.gradientButton(radius: 12),
                   child: Center(
-                    child: isSaving 
+                    child: isSaving
                         ? const SizedBox(
-                            height: 24, 
-                            width: 24, 
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5)
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2.5,
+                            ),
                           )
                         : Text(
                             'Kaydet',
@@ -428,16 +650,18 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                 ),
               ),
             ],
-            
+
             const SizedBox(height: 32),
-            
+
             // Past Scans Section
             pastScansAsyc.when(
               data: (meals) {
                 if (meals.isEmpty) return const SizedBox.shrink();
-                
+
                 return Theme(
-                  data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                  data: Theme.of(
+                    context,
+                  ).copyWith(dividerColor: Colors.transparent),
                   child: ExpansionTile(
                     tilePadding: EdgeInsets.zero,
                     title: Text(
@@ -451,64 +675,87 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     children: [
                       const SizedBox(height: 8),
                       SizedBox(
-                        height: 140,
+                        height: 156,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: meals.length,
-                          separatorBuilder: (context, index) => const SizedBox(width: 12),
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(width: 12),
                           itemBuilder: (context, index) {
                             final meal = meals[index];
-                            return Container(
-                              width: 120,
-                              decoration: BoxDecoration(
-                                color: AppTheme.cardBackground,
-                                borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.vertical(
-                                        top: Radius.circular(AppTheme.cardBorderRadius),
-                                      ),
-                                      child: meal.imageUrl.isNotEmpty
-                                          ? Image.network(
-                                              meal.imageUrl,
-                                              fit: BoxFit.cover,
-                                            )
-                                          : Container(
-                                              color: Colors.grey.withAlpha(30),
-                                              child: const Icon(Icons.fastfood, color: Colors.grey),
+                            final savedDate = AppDateUtils.formatDayMonthYear(
+                              meal.timestamp,
+                            );
+                            return Semantics(
+                              button: true,
+                              label: '${meal.detectedFood} tarama detayı',
+                              child: GestureDetector(
+                                onTap: () => _showPastScanDetails(meal),
+                                child: Container(
+                                  width: 120,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardBackground,
+                                    borderRadius: BorderRadius.circular(
+                                      AppTheme.cardBorderRadius,
+                                    ),
+                                    border: Border.all(
+                                      color: Colors.white.withAlpha(12),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(
+                                              AppTheme.cardBorderRadius,
                                             ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          meal.detectedFood,
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppTheme.textWhite,
                                           ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        Text(
-                                          '${meal.calories} kcal',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 10,
-                                            color: AppTheme.secondaryAccent,
+                                          child: _mealImage(
+                                            meal,
+                                            fallbackIcon:
+                                                Icons.restaurant_rounded,
                                           ),
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(8.0),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              meal.detectedFood,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppTheme.textWhite,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            Text(
+                                              '${meal.calories} kcal',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 10,
+                                                color: AppTheme.secondaryAccent,
+                                              ),
+                                            ),
+                                            Text(
+                                              savedDate,
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 9,
+                                                color: AppTheme.textSecondary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
                             );
                           },
@@ -523,6 +770,108 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ScanDetailRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color iconColor;
+
+  const _ScanDetailRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.iconColor = AppTheme.secondaryAccent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: iconColor, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(
+                fontSize: 13,
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 14,
+              color: AppTheme.textWhite,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MacroTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color color;
+
+  const _MacroTile({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 76,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.cardBackground,
+        borderRadius: BorderRadius.circular(AppTheme.cardBorderRadius),
+        border: Border.all(color: color.withAlpha(80)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: AppTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 17,
+                color: color,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

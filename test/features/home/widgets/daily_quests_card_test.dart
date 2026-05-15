@@ -144,4 +144,42 @@ void main() {
     expect(find.text('Al'), findsNWidgets(3));
     expect(find.text('Kilitli'), findsNWidgets(2));
   });
+
+  testWidgets('weekly tab still renders when weekly reward log cannot sync', (
+    tester,
+  ) async {
+    final weekLogs = [
+      DailyLogModel(
+        date: '2026-05-11',
+        timestamp: DateTime(2026, 5, 11),
+        stepCount: 10000,
+        waterGlasses: 8,
+        mealsLogged: 2,
+      ),
+    ];
+
+    await tester.pumpWidget(
+      buildSubject(
+        weekLogs.first,
+        overrides: [
+          currentWeekLogsProvider.overrideWith((ref) async => weekLogs),
+          weeklyQuestLogProvider.overrideWith(
+            (ref) => Stream<WeeklyQuestLogModel?>.error(
+              Exception('permission-denied'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    await tester.tap(find.text('Haftalık'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Haftalık Görevci'), findsOneWidget);
+    expect(
+      find.textContaining('Haftalık ödül durumu senkronize edilemedi'),
+      findsOneWidget,
+    );
+    expect(find.text('Görevler yüklenemedi.'), findsNothing);
+  });
 }

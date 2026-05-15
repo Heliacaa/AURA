@@ -34,6 +34,10 @@ class AppDateUtils {
     return DateFormat('yyyy-MM-dd').format(date);
   }
 
+  static String formatDayMonthYear(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
+
   static String formatTimestamp(DateTime date) {
     return DateFormat('HH:mm').format(date);
   }

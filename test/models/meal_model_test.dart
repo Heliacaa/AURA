@@ -53,7 +53,7 @@ void main() {
       expect(map['imageUrl'], 'https://example.com/img.jpg');
     });
 
-    test('copyWith updates imageUrl', () {
+    test('copyWith updates imageUrl and timestamp', () {
       final meal = MealModel(
         timestamp: DateTime(2024, 6, 15),
         detectedFood: 'Rice',
@@ -63,8 +63,10 @@ void main() {
         fat: 2.0,
       );
 
-      final updated = meal.copyWith(imageUrl: 'new_url');
+      final savedAt = DateTime(2024, 6, 16, 10, 30);
+      final updated = meal.copyWith(imageUrl: 'new_url', timestamp: savedAt);
       expect(updated.imageUrl, 'new_url');
+      expect(updated.timestamp, savedAt);
       expect(updated.detectedFood, 'Rice');
       expect(updated.calories, 300);
     });

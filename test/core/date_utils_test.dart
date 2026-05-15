@@ -18,6 +18,13 @@ void main() {
       expect(AppDateUtils.formatDate(DateTime(2024, 1, 1)), '2024-01-01');
     });
 
+    test('formatDayMonthYear returns dd/MM/yyyy', () {
+      expect(
+        AppDateUtils.formatDayMonthYear(DateTime(2026, 5, 14)),
+        '14/05/2026',
+      );
+    });
+
     test('formatTimestamp returns HH:mm', () {
       final result = AppDateUtils.formatTimestamp(
         DateTime(2024, 6, 15, 14, 30),

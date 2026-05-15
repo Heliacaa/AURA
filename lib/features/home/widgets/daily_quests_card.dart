@@ -141,49 +141,30 @@ class _DailyQuestsCardState extends ConsumerState<DailyQuestsCard> {
   Widget _buildWeeklyQuests() {
     final weekLogsAsync = ref.watch(currentWeekLogsProvider);
     final weeklyLogAsync = ref.watch(weeklyQuestLogProvider);
+    final claimedQuestIds =
+        weeklyLogAsync.valueOrNull?.claimedQuestIds ?? const <String>[];
+    final fallbackLogs = [if (widget.log != null) widget.log!];
 
-    return weeklyLogAsync.when(
+    return weekLogsAsync.when(
       loading: () => const _QuestLoading(),
-      error: (_, _) => const _QuestError(),
-      data: (weeklyLog) {
-        final claimedQuestIds = weeklyLog?.claimedQuestIds ?? const <String>[];
-        return weekLogsAsync.when(
-          loading: () => const _QuestLoading(),
-          error: (_, _) => const _QuestError(),
-          data: (weekLogs) {
-            return Column(
-              children: WeeklyQuestCatalog.all.map((quest) {
-                final progress = QuestEvaluator.progressFor(
-                  quest: quest,
-                  todayLog: widget.log,
-                  goals: widget.goals,
-                  weekLogs: weekLogs,
-                  claimedQuestIds: claimedQuestIds,
-                );
-                final status = QuestEvaluator.statusFor(
-                  quest: quest,
-                  progress: progress,
-                  claimedQuestIds: claimedQuestIds,
-                );
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _QuestRow(
-                    quest: quest,
-                    progress: progress,
-                    status: status,
-                    isClaiming: _claimingQuestId == quest.id,
-                    onClaim:
-                        status == QuestStatus.ready && _claimingQuestId == null
-                        ? () => _claimQuest(quest)
-                        : null,
-                  ),
-                );
-              }).toList(),
-            );
-          },
-        );
-      },
+      error: (_, _) => _WeeklyQuestList(
+        weekLogs: fallbackLogs,
+        todayLog: widget.log,
+        goals: widget.goals,
+        claimedQuestIds: claimedQuestIds,
+        claimingQuestId: _claimingQuestId,
+        onClaim: _claimQuest,
+        showSyncWarning: true,
+      ),
+      data: (weekLogs) => _WeeklyQuestList(
+        weekLogs: weekLogs,
+        todayLog: widget.log,
+        goals: widget.goals,
+        claimedQuestIds: claimedQuestIds,
+        claimingQuestId: _claimingQuestId,
+        onClaim: _claimQuest,
+        showSyncWarning: weeklyLogAsync.hasError,
+      ),
     );
   }
 
@@ -262,6 +243,62 @@ class _QuestTab extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _WeeklyQuestList extends StatelessWidget {
+  final List<DailyLogModel> weekLogs;
+  final DailyLogModel? todayLog;
+  final DailyGoals goals;
+  final List<String> claimedQuestIds;
+  final String? claimingQuestId;
+  final ValueChanged<QuestDefinition> onClaim;
+  final bool showSyncWarning;
+
+  const _WeeklyQuestList({
+    required this.weekLogs,
+    required this.todayLog,
+    required this.goals,
+    required this.claimedQuestIds,
+    required this.claimingQuestId,
+    required this.onClaim,
+    required this.showSyncWarning,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (showSyncWarning) const _QuestSyncWarning(),
+        ...WeeklyQuestCatalog.all.map((quest) {
+          final progress = QuestEvaluator.progressFor(
+            quest: quest,
+            todayLog: todayLog,
+            goals: goals,
+            weekLogs: weekLogs,
+            claimedQuestIds: claimedQuestIds,
+          );
+          final status = QuestEvaluator.statusFor(
+            quest: quest,
+            progress: progress,
+            claimedQuestIds: claimedQuestIds,
+          );
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: _QuestRow(
+              quest: quest,
+              progress: progress,
+              status: status,
+              isClaiming: claimingQuestId == quest.id,
+              onClaim: status == QuestStatus.ready && claimingQuestId == null
+                  ? () => onClaim(quest)
+                  : null,
+            ),
+          );
+        }),
+      ],
     );
   }
 }
@@ -440,16 +477,23 @@ class _QuestLoading extends StatelessWidget {
   }
 }
 
-class _QuestError extends StatelessWidget {
-  const _QuestError();
+class _QuestSyncWarning extends StatelessWidget {
+  const _QuestSyncWarning();
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppTheme.warningOrange.withAlpha(22),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.warningOrange.withAlpha(80)),
+      ),
       child: Text(
-        'Görevler yüklenemedi.',
-        style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+        'Haftalık ödül durumu senkronize edilemedi; görev ilerlemesi gösteriliyor.',
+        style: GoogleFonts.poppins(color: AppTheme.textSecondary, fontSize: 11),
       ),
     );
   }
