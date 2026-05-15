@@ -2,7 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura/core/utils/date_utils.dart';
+import 'package:aura/features/home/models/daily_quest.dart';
 import 'package:aura/services/firestore_service.dart';
+import 'package:aura/shared/models/achievement_catalog.dart';
 import 'package:aura/shared/models/daily_log_model.dart';
 import 'package:aura/shared/models/user_model.dart';
 
@@ -90,6 +92,119 @@ void main() {
       expect(logData['claimedQuestIds'], ['sleep_log']);
       expect(logData['xpEarned'], 25);
       expect(logData['completedTasks'], ['+25 XP (Uyku görevi tamamlandı)']);
+
+      final achievementDoc = await fakeFirestore
+          .collection('users')
+          .doc(uid)
+          .collection('achievements')
+          .doc(AchievementIds.firstQuest)
+          .get();
+      expect(achievementDoc.exists, isTrue);
+    });
+
+    test('claimDailyQuest unlocks daily combo achievement', () async {
+      await seedUser();
+      await seedTodayLog(
+        DailyLogModel.empty(AppDateUtils.todayKey()).copyWith(
+          claimedQuestIds: DailyQuestCatalog.forDate(
+            DateTime.now(),
+          ).map((quest) => quest.id).toList(),
+        ),
+      );
+
+      final claimed = await service.claimDailyQuest(
+        uid: uid,
+        questId: DailyQuestIds.combo,
+        xpDelta: 40,
+        statDeltas: const {'charisma': 2, 'vitality': 2},
+        taskDescription: '+40 XP (Günlük kombo tamamlandı)',
+      );
+
+      expect(claimed, isTrue);
+      final comboAchievement = await fakeFirestore
+          .collection('users')
+          .doc(uid)
+          .collection('achievements')
+          .doc(AchievementIds.dailyCombo)
+          .get();
+      expect(comboAchievement.exists, isTrue);
+    });
+
+    test(
+      'claimWeeklyQuest awards once and unlocks weekly achievements',
+      () async {
+        await seedUser(leaderboardOptIn: true);
+
+        final firstClaim = await service.claimWeeklyQuest(
+          uid: uid,
+          questId: WeeklyQuestIds.steps,
+          xpDelta: 90,
+          statDeltas: const {'strength': 6},
+          taskDescription: '+90 XP (Haftalık adım görevi tamamlandı)',
+        );
+        final secondClaim = await service.claimWeeklyQuest(
+          uid: uid,
+          questId: WeeklyQuestIds.steps,
+          xpDelta: 90,
+          statDeltas: const {'strength': 6},
+          taskDescription: '+90 XP (Haftalık adım görevi tamamlandı)',
+        );
+
+        expect(firstClaim, isTrue);
+        expect(secondClaim, isFalse);
+
+        final userDoc = await fakeFirestore.collection('users').doc(uid).get();
+        final userData = userDoc.data()!;
+        expect(userData['xp'], 90);
+        expect(userData['weeklyXp'], 90);
+        expect(userData['stats']['strength'], 6);
+
+        final weeklyLog = await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('weeklyQuestLogs')
+            .doc(AppDateUtils.weekKey())
+            .get();
+        final logData = weeklyLog.data()!;
+        expect(logData['claimedQuestIds'], [WeeklyQuestIds.steps]);
+        expect(logData['xpEarned'], 90);
+
+        final achievements = await fakeFirestore
+            .collection('users')
+            .doc(uid)
+            .collection('achievements')
+            .get();
+        final achievementIds = achievements.docs.map((doc) => doc.id).toSet();
+        expect(achievementIds, contains(AchievementIds.firstQuest));
+        expect(achievementIds, contains(AchievementIds.firstWeeklyQuest));
+        expect(achievementIds, contains(AchievementIds.weeklySteps));
+
+        final entries = await service.getWeeklyLeaderboard();
+        expect(entries.single['weeklyXp'], 90);
+      },
+    );
+
+    test('unlockAchievementIfMissing is idempotent', () async {
+      await seedUser();
+
+      final first = await service.unlockAchievementIfMissing(
+        uid,
+        AchievementCatalog.firstQuest,
+      );
+      final second = await service.unlockAchievementIfMissing(
+        uid,
+        AchievementCatalog.firstQuest,
+      );
+
+      final achievements = await fakeFirestore
+          .collection('users')
+          .doc(uid)
+          .collection('achievements')
+          .get();
+
+      expect(first, isTrue);
+      expect(second, isFalse);
+      expect(achievements.docs.length, 1);
     });
 
     test('updateUserXP increments current weekly XP', () async {

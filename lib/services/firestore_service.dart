@@ -4,8 +4,11 @@ import '../shared/models/daily_log_model.dart';
 import '../shared/models/meal_model.dart';
 import '../shared/models/chat_message_model.dart';
 import '../shared/models/achievement_model.dart';
+import '../shared/models/achievement_catalog.dart';
 import '../shared/models/friendship_model.dart';
+import '../shared/models/weekly_quest_log_model.dart';
 import '../core/utils/date_utils.dart';
+import '../features/home/models/daily_quest.dart';
 
 class FirestoreService {
   FirestoreService({FirebaseFirestore? firestore})
@@ -31,6 +34,9 @@ class FirestoreService {
 
   CollectionReference _achievements(String uid) =>
       _userDoc(uid).collection('achievements');
+
+  CollectionReference _weeklyQuestLogs(String uid) =>
+      _userDoc(uid).collection('weeklyQuestLogs');
 
   CollectionReference _friendships() => _db.collection('friendships');
 
@@ -173,59 +179,22 @@ class FirestoreService {
       if (!userDoc.exists) return;
 
       final data = userDoc.data() as Map<String, dynamic>;
-      int currentXp = (data['xp'] as num?)?.toInt() ?? 0;
-      int currentLevel = (data['currentLevel'] as num?)?.toInt() ?? 1;
-      int xpToNext = (data['xpToNextLevel'] as num?)?.toInt() ?? 500;
-      int weeklyXp = (data['weeklyXp'] as num?)?.toInt() ?? 0;
-      String weeklyXpWeek = data['weeklyXpWeek'] as String? ?? '';
-      final leaderboardOptIn = data['leaderboardOptIn'] as bool? ?? false;
-      final stats = data['stats'] as Map<String, dynamic>? ?? {};
-
-      currentXp += xpDelta;
-      if (weeklyXpWeek != currentWeek) {
-        weeklyXp = 0;
-        weeklyXpWeek = currentWeek;
-      }
-      weeklyXp += xpDelta;
-
-      // Check for level up
-      while (currentXp >= xpToNext) {
-        currentXp -= xpToNext;
-        currentLevel++;
-        xpToNext = UserModel.xpForLevel(currentLevel);
-        leveledUp = true;
-      }
-
-      final newClass = UserModel.classForLevel(currentLevel);
-
-      // Update stats
-      final updatedStats = Map<String, dynamic>.from(stats);
-      for (final entry in statDeltas.entries) {
-        final current = (updatedStats[entry.key] as num?)?.toInt() ?? 0;
-        updatedStats[entry.key] = current + entry.value;
-      }
-
-      transaction.update(userRef, {
-        'xp': currentXp,
-        'currentLevel': currentLevel,
-        'xpToNextLevel': xpToNext,
-        'currentClass': newClass,
-        'weeklyXp': weeklyXp,
-        'weeklyXpWeek': weeklyXpWeek,
-        'stats': updatedStats,
-      });
-
-      if (leaderboardOptIn) {
-        transaction.set(leaderboardRef, {
-          'uid': uid,
-          'displayName': data['displayName'] ?? '',
-          'currentLevel': currentLevel,
-          'currentClass': newClass,
-          'weeklyXp': weeklyXp,
-          'weekKey': currentWeek,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      }
+      final reward = _calculateRewardUpdate(
+        userData: data,
+        xpDelta: xpDelta,
+        statDeltas: statDeltas,
+        currentWeek: currentWeek,
+      );
+      leveledUp = reward.leveledUp;
+      _writeRewardUpdates(
+        transaction: transaction,
+        userRef: userRef,
+        leaderboardRef: leaderboardRef,
+        uid: uid,
+        userData: data,
+        reward: reward,
+        currentWeek: currentWeek,
+      );
 
       // Also update today's log xpEarned
       if (logDoc.exists) {
@@ -277,55 +246,21 @@ class FirestoreService {
 
       if (claimedQuestIds.contains(questId)) return;
 
-      int currentXp = (userData['xp'] as num?)?.toInt() ?? 0;
-      int currentLevel = (userData['currentLevel'] as num?)?.toInt() ?? 1;
-      int xpToNext = (userData['xpToNextLevel'] as num?)?.toInt() ?? 500;
-      int weeklyXp = (userData['weeklyXp'] as num?)?.toInt() ?? 0;
-      String weeklyXpWeek = userData['weeklyXpWeek'] as String? ?? '';
-      final leaderboardOptIn = userData['leaderboardOptIn'] as bool? ?? false;
-      final stats = userData['stats'] as Map<String, dynamic>? ?? {};
-
-      currentXp += xpDelta;
-      if (weeklyXpWeek != currentWeek) {
-        weeklyXp = 0;
-        weeklyXpWeek = currentWeek;
-      }
-      weeklyXp += xpDelta;
-
-      while (currentXp >= xpToNext) {
-        currentXp -= xpToNext;
-        currentLevel++;
-        xpToNext = UserModel.xpForLevel(currentLevel);
-      }
-
-      final newClass = UserModel.classForLevel(currentLevel);
-      final updatedStats = Map<String, dynamic>.from(stats);
-      for (final entry in statDeltas.entries) {
-        final current = (updatedStats[entry.key] as num?)?.toInt() ?? 0;
-        updatedStats[entry.key] = current + entry.value;
-      }
-
-      transaction.update(userRef, {
-        'xp': currentXp,
-        'currentLevel': currentLevel,
-        'xpToNextLevel': xpToNext,
-        'currentClass': newClass,
-        'weeklyXp': weeklyXp,
-        'weeklyXpWeek': weeklyXpWeek,
-        'stats': updatedStats,
-      });
-
-      if (leaderboardOptIn) {
-        transaction.set(leaderboardRef, {
-          'uid': uid,
-          'displayName': userData['displayName'] ?? '',
-          'currentLevel': currentLevel,
-          'currentClass': newClass,
-          'weeklyXp': weeklyXp,
-          'weekKey': currentWeek,
-          'updatedAt': Timestamp.fromDate(DateTime.now()),
-        });
-      }
+      final reward = _calculateRewardUpdate(
+        userData: userData,
+        xpDelta: xpDelta,
+        statDeltas: statDeltas,
+        currentWeek: currentWeek,
+      );
+      _writeRewardUpdates(
+        transaction: transaction,
+        userRef: userRef,
+        leaderboardRef: leaderboardRef,
+        uid: uid,
+        userData: userData,
+        reward: reward,
+        currentWeek: currentWeek,
+      );
 
       claimedQuestIds.add(questId);
       final tasks = List<String>.from(logData['completedTasks'] ?? []);
@@ -342,6 +277,80 @@ class FirestoreService {
     final userDoc = await _userDoc(uid).get();
     if (userDoc.exists) {
       await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
+
+    if (claimed) {
+      await _unlockQuestAchievements(uid, questId, QuestCadence.daily);
+    }
+
+    return claimed;
+  }
+
+  /// Claim a weekly quest exactly once and award its XP/stat reward.
+  Future<bool> claimWeeklyQuest({
+    required String uid,
+    required String questId,
+    required int xpDelta,
+    Map<String, int> statDeltas = const {},
+    required String taskDescription,
+  }) async {
+    var claimed = false;
+    final currentWeek = AppDateUtils.weekKey();
+
+    await _db.runTransaction((transaction) async {
+      final userRef = _userDoc(uid);
+      final logRef = _weeklyQuestLogs(uid).doc(currentWeek);
+      final leaderboardRef = _leaderboardEntry(currentWeek, uid);
+
+      final userDoc = await transaction.get(userRef);
+      final logDoc = await transaction.get(logRef);
+      if (!userDoc.exists) return;
+
+      final userData = userDoc.data() as Map<String, dynamic>;
+      final logData = logDoc.data() as Map<String, dynamic>? ?? {};
+      final claimedQuestIds = List<String>.from(
+        logData['claimedQuestIds'] ?? [],
+      );
+
+      if (claimedQuestIds.contains(questId)) return;
+
+      final reward = _calculateRewardUpdate(
+        userData: userData,
+        xpDelta: xpDelta,
+        statDeltas: statDeltas,
+        currentWeek: currentWeek,
+      );
+      _writeRewardUpdates(
+        transaction: transaction,
+        userRef: userRef,
+        leaderboardRef: leaderboardRef,
+        uid: uid,
+        userData: userData,
+        reward: reward,
+        currentWeek: currentWeek,
+      );
+
+      claimedQuestIds.add(questId);
+      final tasks = List<String>.from(logData['completedTasks'] ?? []);
+      tasks.add(taskDescription);
+      transaction.set(logRef, {
+        'weekKey': currentWeek,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+        'claimedQuestIds': claimedQuestIds,
+        'xpEarned': ((logData['xpEarned'] as num?)?.toInt() ?? 0) + xpDelta,
+        'completedTasks': tasks,
+      }, SetOptions(merge: true));
+
+      claimed = true;
+    });
+
+    final userDoc = await _userDoc(uid).get();
+    if (userDoc.exists) {
+      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+    }
+
+    if (claimed) {
+      await _unlockQuestAchievements(uid, questId, QuestCadence.weekly);
     }
 
     return claimed;
@@ -391,6 +400,17 @@ class FirestoreService {
     });
   }
 
+  /// Stream the current user's weekly quest log.
+  Stream<WeeklyQuestLogModel?> weeklyQuestLogStream(
+    String uid,
+    String weekKey,
+  ) {
+    return _weeklyQuestLogs(uid).doc(weekKey).snapshots().map((doc) {
+      if (!doc.exists) return null;
+      return WeeklyQuestLogModel.fromFirestore(doc);
+    });
+  }
+
   /// Ensure today's log exists
   Future<void> ensureTodayLog(String uid) async {
     final today = AppDateUtils.todayKey();
@@ -399,6 +419,16 @@ class FirestoreService {
       await _dailyLogs(
         uid,
       ).doc(today).set(DailyLogModel.empty(today).toFirestore());
+    }
+  }
+
+  /// Ensure this week's quest log exists.
+  Future<void> ensureWeeklyQuestLog(String uid, String weekKey) async {
+    final doc = await _weeklyQuestLogs(uid).doc(weekKey).get();
+    if (!doc.exists) {
+      await _weeklyQuestLogs(
+        uid,
+      ).doc(weekKey).set(WeeklyQuestLogModel.empty(weekKey).toFirestore());
     }
   }
 
@@ -532,6 +562,25 @@ class FirestoreService {
     AchievementModel achievement,
   ) async {
     await _achievements(uid).doc(achievement.id).set(achievement.toFirestore());
+  }
+
+  /// Unlock an achievement only if it has not been unlocked yet.
+  Future<bool> unlockAchievementIfMissing(
+    String uid,
+    AchievementDefinition definition,
+  ) async {
+    var unlocked = false;
+    final achievementRef = _achievements(uid).doc(definition.id);
+
+    await _db.runTransaction((transaction) async {
+      final doc = await transaction.get(achievementRef);
+      if (doc.exists) return;
+
+      transaction.set(achievementRef, definition.unlock().toFirestore());
+      unlocked = true;
+    });
+
+    return unlocked;
   }
 
   // ─── Friends ──────────────────────────────────────────────
@@ -715,6 +764,22 @@ class FirestoreService {
     return snap.docs.map((d) => DailyLogModel.fromFirestore(d)).toList();
   }
 
+  /// Get logs for the current ISO week, Monday through Sunday.
+  Future<List<DailyLogModel>> getCurrentWeekLogs(
+    String uid, {
+    DateTime? date,
+  }) async {
+    final startKey = AppDateUtils.formatDate(AppDateUtils.startOfIsoWeek(date));
+    final endKey = AppDateUtils.formatDate(AppDateUtils.endOfIsoWeek(date));
+
+    final snap = await _dailyLogs(uid)
+        .where(FieldPath.documentId, isGreaterThanOrEqualTo: startKey)
+        .where(FieldPath.documentId, isLessThanOrEqualTo: endKey)
+        .orderBy(FieldPath.documentId)
+        .get();
+    return snap.docs.map((d) => DailyLogModel.fromFirestore(d)).toList();
+  }
+
   // ─── Today's Meals for Macro Tracking ─────────────────────
 
   /// Stream meals for today only
@@ -734,6 +799,124 @@ class FirestoreService {
         .map(
           (snap) => snap.docs.map((d) => MealModel.fromFirestore(d)).toList(),
         );
+  }
+
+  _RewardUpdate _calculateRewardUpdate({
+    required Map<String, dynamic> userData,
+    required int xpDelta,
+    required Map<String, int> statDeltas,
+    required String currentWeek,
+  }) {
+    var currentXp = (userData['xp'] as num?)?.toInt() ?? 0;
+    var currentLevel = (userData['currentLevel'] as num?)?.toInt() ?? 1;
+    var xpToNext = (userData['xpToNextLevel'] as num?)?.toInt() ?? 500;
+    var weeklyXp = (userData['weeklyXp'] as num?)?.toInt() ?? 0;
+    var weeklyXpWeek = userData['weeklyXpWeek'] as String? ?? '';
+    var leveledUp = false;
+
+    currentXp += xpDelta;
+    if (weeklyXpWeek != currentWeek) {
+      weeklyXp = 0;
+      weeklyXpWeek = currentWeek;
+    }
+    weeklyXp += xpDelta;
+
+    while (currentXp >= xpToNext) {
+      currentXp -= xpToNext;
+      currentLevel++;
+      xpToNext = UserModel.xpForLevel(currentLevel);
+      leveledUp = true;
+    }
+
+    final stats = userData['stats'] as Map<String, dynamic>? ?? {};
+    final updatedStats = Map<String, dynamic>.from(stats);
+    for (final entry in statDeltas.entries) {
+      final current = (updatedStats[entry.key] as num?)?.toInt() ?? 0;
+      updatedStats[entry.key] = current + entry.value;
+    }
+
+    return _RewardUpdate(
+      currentXp: currentXp,
+      currentLevel: currentLevel,
+      xpToNextLevel: xpToNext,
+      currentClass: UserModel.classForLevel(currentLevel),
+      weeklyXp: weeklyXp,
+      weeklyXpWeek: weeklyXpWeek,
+      stats: updatedStats,
+      leveledUp: leveledUp,
+    );
+  }
+
+  void _writeRewardUpdates({
+    required Transaction transaction,
+    required DocumentReference userRef,
+    required DocumentReference leaderboardRef,
+    required String uid,
+    required Map<String, dynamic> userData,
+    required _RewardUpdate reward,
+    required String currentWeek,
+  }) {
+    transaction.update(userRef, {
+      'xp': reward.currentXp,
+      'currentLevel': reward.currentLevel,
+      'xpToNextLevel': reward.xpToNextLevel,
+      'currentClass': reward.currentClass,
+      'weeklyXp': reward.weeklyXp,
+      'weeklyXpWeek': reward.weeklyXpWeek,
+      'stats': reward.stats,
+    });
+
+    final leaderboardOptIn = userData['leaderboardOptIn'] as bool? ?? false;
+    if (leaderboardOptIn) {
+      transaction.set(leaderboardRef, {
+        'uid': uid,
+        'displayName': userData['displayName'] ?? '',
+        'currentLevel': reward.currentLevel,
+        'currentClass': reward.currentClass,
+        'weeklyXp': reward.weeklyXp,
+        'weekKey': currentWeek,
+        'updatedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    }
+  }
+
+  Future<void> _unlockQuestAchievements(
+    String uid,
+    String questId,
+    QuestCadence cadence,
+  ) async {
+    await unlockAchievementIfMissing(uid, AchievementCatalog.firstQuest);
+
+    if (cadence == QuestCadence.daily && questId == DailyQuestIds.combo) {
+      await unlockAchievementIfMissing(uid, AchievementCatalog.dailyCombo);
+    }
+
+    if (cadence == QuestCadence.weekly) {
+      await unlockAchievementIfMissing(
+        uid,
+        AchievementCatalog.firstWeeklyQuest,
+      );
+      switch (questId) {
+        case WeeklyQuestIds.combo:
+          await unlockAchievementIfMissing(uid, AchievementCatalog.weeklyCombo);
+          break;
+        case WeeklyQuestIds.steps:
+          await unlockAchievementIfMissing(uid, AchievementCatalog.weeklySteps);
+          break;
+        case WeeklyQuestIds.hydration:
+          await unlockAchievementIfMissing(
+            uid,
+            AchievementCatalog.weeklyHydration,
+          );
+          break;
+        case WeeklyQuestIds.nutrition:
+          await unlockAchievementIfMissing(
+            uid,
+            AchievementCatalog.weeklyNutrition,
+          );
+          break;
+      }
+    }
   }
 
   Map<String, dynamic> _publicProfileData(UserModel user) => {
@@ -787,4 +970,26 @@ class FirestoreService {
       // the private profile save should not fail if deployed rules lag behind.
     }
   }
+}
+
+class _RewardUpdate {
+  final int currentXp;
+  final int currentLevel;
+  final int xpToNextLevel;
+  final String currentClass;
+  final int weeklyXp;
+  final String weeklyXpWeek;
+  final Map<String, dynamic> stats;
+  final bool leveledUp;
+
+  const _RewardUpdate({
+    required this.currentXp,
+    required this.currentLevel,
+    required this.xpToNextLevel,
+    required this.currentClass,
+    required this.weeklyXp,
+    required this.weeklyXpWeek,
+    required this.stats,
+    required this.leveledUp,
+  });
 }

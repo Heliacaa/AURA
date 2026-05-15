@@ -31,6 +31,13 @@ void main() {
       expect(AppDateUtils.weekKey(DateTime(2024, 12, 30)), '2025-W01');
     });
 
+    test('startOfIsoWeek and endOfIsoWeek return Monday and Sunday', () {
+      final date = DateTime(2026, 5, 15);
+
+      expect(AppDateUtils.startOfIsoWeek(date), DateTime(2026, 5, 11));
+      expect(AppDateUtils.endOfIsoWeek(date), DateTime(2026, 5, 17));
+    });
+
     test('greeting returns time-appropriate greeting', () {
       final greeting = AppDateUtils.greeting();
       // Can't control time, but should return one of the valid strings

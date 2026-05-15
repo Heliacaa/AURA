@@ -20,6 +20,16 @@ class AppDateUtils {
     return '${thursday.year}-W${weekNumber.toString().padLeft(2, '0')}';
   }
 
+  static DateTime startOfIsoWeek([DateTime? date]) {
+    final localDate = date ?? DateTime.now();
+    final day = DateTime(localDate.year, localDate.month, localDate.day);
+    return day.subtract(Duration(days: day.weekday - DateTime.monday));
+  }
+
+  static DateTime endOfIsoWeek([DateTime? date]) {
+    return startOfIsoWeek(date).add(const Duration(days: 6));
+  }
+
   static String formatDate(DateTime date) {
     return DateFormat('yyyy-MM-dd').format(date);
   }

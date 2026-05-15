@@ -585,16 +585,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await ref
         .read(socialServiceProvider)
         .incrementChallengeProgress('water', 1);
-
-    final user = ref.read(currentUserProvider).valueOrNull;
-    if (user != null && current + 1 >= user.dailyGoals.waterGlasses) {
-      await FirestoreService.instance.updateUserXP(
-        uid: uid,
-        xpDelta: 15,
-        statDeltas: {'vitality': 2},
-        taskDescription: '+2 Vitalite (Su hedefine ulaşıldı)',
-      );
-    }
   }
 
   Future<void> _showSleepDialog(BuildContext context) async {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -6,10 +7,9 @@ import '../../../services/firestore_service.dart';
 import '../../../shared/models/daily_log_model.dart';
 import '../../../shared/models/user_model.dart';
 import '../models/daily_quest.dart';
+import '../providers/home_provider.dart';
 
-enum DailyQuestStatus { locked, ready, claimed }
-
-class DailyQuestsCard extends StatefulWidget {
+class DailyQuestsCard extends ConsumerStatefulWidget {
   final String uid;
   final DailyLogModel? log;
   final DailyGoals goals;
@@ -22,19 +22,25 @@ class DailyQuestsCard extends StatefulWidget {
   });
 
   @override
-  State<DailyQuestsCard> createState() => _DailyQuestsCardState();
+  ConsumerState<DailyQuestsCard> createState() => _DailyQuestsCardState();
 }
 
-class _DailyQuestsCardState extends State<DailyQuestsCard> {
+class _DailyQuestsCardState extends ConsumerState<DailyQuestsCard> {
+  QuestCadence _selectedCadence = QuestCadence.daily;
   String? _claimingQuestId;
 
   @override
   Widget build(BuildContext context) {
-    final completedCount = widget.log == null
+    final dailyRotation = DailyQuestCatalog.forDate(DateTime.now());
+    final dailyQuests = [...dailyRotation, DailyQuestCatalog.combo];
+    final dailyClaimedCount = widget.log == null
         ? 0
-        : DailyQuestCatalog.all
+        : dailyQuests
               .where((quest) => widget.log!.claimedQuestIds.contains(quest.id))
               .length;
+    final subtitle = _selectedCadence == QuestCadence.daily
+        ? 'Bugün $dailyClaimedCount / ${dailyQuests.length} ödül alındı'
+        : 'Haftalık görev ödüllerini takip et';
 
     return Container(
       width: double.infinity,
@@ -52,7 +58,7 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Günlük Görevler',
+                      'Görev Panosu',
                       style: GoogleFonts.poppins(
                         color: AppTheme.textWhite,
                         fontSize: 16,
@@ -61,7 +67,7 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '$completedCount / ${DailyQuestCatalog.all.length} ödül alındı',
+                      subtitle,
                       style: GoogleFonts.poppins(
                         color: AppTheme.textSecondary,
                         fontSize: 12,
@@ -70,81 +76,141 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryAccent.withAlpha(28),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Text(
-                  'Daily Quests',
-                  style: GoogleFonts.poppins(
-                    color: AppTheme.secondaryAccent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              _QuestTab(
+                label: 'Günlük',
+                selected: _selectedCadence == QuestCadence.daily,
+                onTap: () =>
+                    setState(() => _selectedCadence = QuestCadence.daily),
+              ),
+              const SizedBox(width: 8),
+              _QuestTab(
+                label: 'Haftalık',
+                selected: _selectedCadence == QuestCadence.weekly,
+                onTap: () =>
+                    setState(() => _selectedCadence = QuestCadence.weekly),
               ),
             ],
           ),
           const SizedBox(height: 14),
-          ...DailyQuestCatalog.all.map((quest) {
-            final status = _statusFor(quest);
-            final isClaiming = _claimingQuestId == quest.id;
-            
-            // Dinamik olarak hedef sayılarını subtitle içerisine gömelim
-            String questSubtitle = quest.subtitle;
-            if (quest.id == DailyQuestIds.water) {
-              questSubtitle = 'Günlük su hedefini (${widget.goals.waterGlasses} bardak) tamamla';
-            } else if (quest.id == DailyQuestIds.steps) {
-              questSubtitle = 'Günlük adım hedefini (${widget.goals.steps}) tamamla';
-            }
-            
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: _QuestRow(
-                quest: quest,
-                dynamicSubtitle: questSubtitle,
-                status: status,
-                isClaiming: isClaiming,
-                onClaim: status == DailyQuestStatus.ready && !isClaiming
-                    ? () => _claimQuest(quest)
-                    : null,
-              ),
-            );
-          }),
+          if (_selectedCadence == QuestCadence.daily)
+            _buildDailyQuests(dailyRotation, dailyQuests)
+          else
+            _buildWeeklyQuests(),
         ],
       ),
     );
   }
 
-  DailyQuestStatus _statusFor(DailyQuest quest) {
-    final log = widget.log;
-    if (log == null) return DailyQuestStatus.locked;
-    if (log.claimedQuestIds.contains(quest.id)) {
-      return DailyQuestStatus.claimed;
-    }
-    if (quest.isComplete(log, widget.goals)) {
-      return DailyQuestStatus.ready;
-    }
-    return DailyQuestStatus.locked;
+  Widget _buildDailyQuests(
+    List<QuestDefinition> dailyRotation,
+    List<QuestDefinition> dailyQuests,
+  ) {
+    final claimedQuestIds = widget.log?.claimedQuestIds ?? const <String>[];
+
+    return Column(
+      children: dailyQuests.map((quest) {
+        final progress = QuestEvaluator.progressFor(
+          quest: quest,
+          todayLog: widget.log,
+          goals: widget.goals,
+          claimedQuestIds: claimedQuestIds,
+          dailyRotation: dailyRotation,
+        );
+        final status = QuestEvaluator.statusFor(
+          quest: quest,
+          progress: progress,
+          claimedQuestIds: claimedQuestIds,
+        );
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: _QuestRow(
+            quest: quest,
+            progress: progress,
+            status: status,
+            isClaiming: _claimingQuestId == quest.id,
+            onClaim: status == QuestStatus.ready && _claimingQuestId == null
+                ? () => _claimQuest(quest)
+                : null,
+          ),
+        );
+      }).toList(),
+    );
   }
 
-  Future<void> _claimQuest(DailyQuest quest) async {
+  Widget _buildWeeklyQuests() {
+    final weekLogsAsync = ref.watch(currentWeekLogsProvider);
+    final weeklyLogAsync = ref.watch(weeklyQuestLogProvider);
+
+    return weeklyLogAsync.when(
+      loading: () => const _QuestLoading(),
+      error: (_, _) => const _QuestError(),
+      data: (weeklyLog) {
+        final claimedQuestIds = weeklyLog?.claimedQuestIds ?? const <String>[];
+        return weekLogsAsync.when(
+          loading: () => const _QuestLoading(),
+          error: (_, _) => const _QuestError(),
+          data: (weekLogs) {
+            return Column(
+              children: WeeklyQuestCatalog.all.map((quest) {
+                final progress = QuestEvaluator.progressFor(
+                  quest: quest,
+                  todayLog: widget.log,
+                  goals: widget.goals,
+                  weekLogs: weekLogs,
+                  claimedQuestIds: claimedQuestIds,
+                );
+                final status = QuestEvaluator.statusFor(
+                  quest: quest,
+                  progress: progress,
+                  claimedQuestIds: claimedQuestIds,
+                );
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _QuestRow(
+                    quest: quest,
+                    progress: progress,
+                    status: status,
+                    isClaiming: _claimingQuestId == quest.id,
+                    onClaim:
+                        status == QuestStatus.ready && _claimingQuestId == null
+                        ? () => _claimQuest(quest)
+                        : null,
+                  ),
+                );
+              }).toList(),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _claimQuest(QuestDefinition quest) async {
     setState(() => _claimingQuestId = quest.id);
     try {
-      final claimed = await FirestoreService.instance.claimDailyQuest(
-        uid: widget.uid,
-        questId: quest.id,
-        xpDelta: quest.xpReward,
-        statDeltas: quest.statDeltas,
-        taskDescription: quest.taskDescription,
-      );
+      final claimed = switch (quest.cadence) {
+        QuestCadence.daily => await FirestoreService.instance.claimDailyQuest(
+          uid: widget.uid,
+          questId: quest.id,
+          xpDelta: quest.xpReward,
+          statDeltas: quest.statDeltas,
+          taskDescription: quest.taskDescription,
+        ),
+        QuestCadence.weekly => await FirestoreService.instance.claimWeeklyQuest(
+          uid: widget.uid,
+          questId: quest.id,
+          xpDelta: quest.xpReward,
+          statDeltas: quest.statDeltas,
+          taskDescription: quest.taskDescription,
+        ),
+      };
 
       if (!mounted) return;
+      if (quest.cadence == QuestCadence.weekly) {
+        ref.invalidate(weeklyQuestLogProvider);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -163,16 +229,53 @@ class _DailyQuestsCardState extends State<DailyQuestsCard> {
   }
 }
 
+class _QuestTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _QuestTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: selected
+              ? AppTheme.secondaryAccent
+              : AppTheme.secondaryAccent.withAlpha(24),
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            color: selected ? Colors.white : AppTheme.secondaryAccent,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _QuestRow extends StatelessWidget {
-  final DailyQuest quest;
-  final String dynamicSubtitle;
-  final DailyQuestStatus status;
+  final QuestDefinition quest;
+  final QuestProgress progress;
+  final QuestStatus status;
   final bool isClaiming;
   final VoidCallback? onClaim;
 
   const _QuestRow({
     required this.quest,
-    required this.dynamicSubtitle,
+    required this.progress,
     required this.status,
     required this.isClaiming,
     required this.onClaim,
@@ -180,8 +283,8 @@ class _QuestRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ready = status == DailyQuestStatus.ready;
-    final claimed = status == DailyQuestStatus.claimed;
+    final ready = status == QuestStatus.ready;
+    final claimed = status == QuestStatus.claimed;
     final borderColor = claimed
         ? AppTheme.secondaryAccent
         : ready
@@ -210,23 +313,53 @@ class _QuestRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  quest.title,
-                  style: GoogleFonts.poppins(
-                    color: AppTheme.textWhite,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        quest.title,
+                        style: GoogleFonts.poppins(
+                          color: AppTheme.textWhite,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '+${quest.xpReward} XP',
+                      style: GoogleFonts.poppins(
+                        color: AppTheme.primaryAccent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '$dynamicSubtitle · +${quest.xpReward} XP',
+                  '${quest.subtitle} · ${progress.label}',
                   style: GoogleFonts.poppins(
                     color: AppTheme.textSecondary,
                     fontSize: 11,
                   ),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: progress.ratio,
+                    minHeight: 5,
+                    backgroundColor: AppTheme.cardBackground,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      claimed
+                          ? AppTheme.secondaryAccent
+                          : ready
+                          ? AppTheme.primaryAccent
+                          : AppTheme.textSecondary.withAlpha(90),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -258,7 +391,7 @@ class _QuestRow extends StatelessWidget {
                           color: ready || claimed
                               ? Colors.white
                               : AppTheme.textSecondary,
-                          fontSize: 11,
+                          fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -272,23 +405,52 @@ class _QuestRow extends StatelessWidget {
 
   Color _buttonColor() {
     switch (status) {
-      case DailyQuestStatus.ready:
-        return AppTheme.primaryAccent;
-      case DailyQuestStatus.claimed:
+      case QuestStatus.claimed:
         return AppTheme.secondaryAccent;
-      case DailyQuestStatus.locked:
+      case QuestStatus.ready:
+        return AppTheme.primaryAccent;
+      case QuestStatus.locked:
         return AppTheme.cardBackground;
     }
   }
 
   String _buttonLabel() {
     switch (status) {
-      case DailyQuestStatus.ready:
-        return 'Al';
-      case DailyQuestStatus.claimed:
+      case QuestStatus.claimed:
         return 'Alındı';
-      case DailyQuestStatus.locked:
+      case QuestStatus.ready:
+        return 'Al';
+      case QuestStatus.locked:
         return 'Kilitli';
     }
+  }
+}
+
+class _QuestLoading extends StatelessWidget {
+  const _QuestLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryAccent),
+      ),
+    );
+  }
+}
+
+class _QuestError extends StatelessWidget {
+  const _QuestError();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Text(
+        'Görevler yüklenemedi.',
+        style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+      ),
+    );
   }
 }

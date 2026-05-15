@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../../core/utils/date_utils.dart';
 import '../../../shared/models/daily_log_model.dart';
 import '../../../shared/models/meal_model.dart';
+import '../../../shared/models/weekly_quest_log_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/health_service.dart';
@@ -43,6 +45,28 @@ final weeklyLogsProvider = FutureProvider<List<DailyLogModel>>((ref) async {
   final user = authState.valueOrNull;
   if (user == null) return [];
   return FirestoreService.instance.getWeeklyLogs(user.uid);
+});
+
+/// Logs for the current ISO week, used by weekly quests.
+final currentWeekLogsProvider = FutureProvider<List<DailyLogModel>>((
+  ref,
+) async {
+  ref.watch(todayLogProvider);
+  final authState = ref.watch(authStateProvider);
+  final user = authState.valueOrNull;
+  if (user == null) return [];
+  return FirestoreService.instance.getCurrentWeekLogs(user.uid);
+});
+
+/// Current ISO week's quest reward state.
+final weeklyQuestLogProvider = StreamProvider<WeeklyQuestLogModel?>((ref) {
+  final authState = ref.watch(authStateProvider);
+  final user = authState.valueOrNull;
+  if (user == null) return const Stream.empty();
+  return FirestoreService.instance.weeklyQuestLogStream(
+    user.uid,
+    AppDateUtils.weekKey(),
+  );
 });
 
 /// Today's meals stream for macro tracking
