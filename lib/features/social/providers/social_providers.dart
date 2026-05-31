@@ -14,15 +14,21 @@ final currentUserIdProvider = Provider<String?>((ref) {
 });
 
 final challengesProvider = StreamProvider<List<Challenge>>((ref) {
+  final authState = ref.watch(authStateProvider);
+  if (authState.valueOrNull == null) return const Stream.empty();
   return ref.watch(socialServiceProvider).getChallengesStream();
 });
 
 final activitiesProvider = StreamProvider<List<ActivityFeedItem>>((ref) {
+  final authState = ref.watch(authStateProvider);
+  if (authState.valueOrNull == null) return const Stream.empty();
   return ref.watch(socialServiceProvider).getActivitiesStream();
 });
 
 // A utility provider to load initial mock data if necessary during development
 final loadMockSocialDataProvider = FutureProvider<void>((ref) async {
+  final authState = ref.watch(authStateProvider);
+  if (authState.valueOrNull == null) return;
   final service = ref.read(socialServiceProvider);
   await service.generateMockData();
 });

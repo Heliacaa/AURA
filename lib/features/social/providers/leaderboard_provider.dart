@@ -21,6 +21,8 @@ final leaderboardSortProvider = StateProvider<LeaderboardSort>(
 final weeklyLeaderboardProvider = StreamProvider<List<Map<String, dynamic>>>((
   ref,
 ) {
+  final authState = ref.watch(authStateProvider);
+  if (authState.valueOrNull == null) return const Stream.empty();
   return FirestoreService.instance.weeklyLeaderboardStream();
 });
 
