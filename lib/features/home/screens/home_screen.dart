@@ -13,7 +13,6 @@ import '../../auth/providers/auth_provider.dart';
 import '../providers/home_provider.dart';
 import '../../../services/firestore_service.dart';
 import '../../../services/health_service.dart';
-import '../widgets/weekly_chart.dart';
 import '../widgets/macro_summary_card.dart';
 import '../widgets/sleep_card.dart';
 import '../widgets/daily_quests_card.dart';
@@ -218,7 +217,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final userAsync = ref.watch(currentUserProvider);
     final logAsync = ref.watch(todayLogProvider);
     final dailyScore = ref.watch(dailyScoreProvider);
-    final weeklyLogs = ref.watch(weeklyLogsProvider);
     final todayMeals = ref.watch(todayMealsProvider);
 
     return SafeArea(
@@ -342,22 +340,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
                   // Active Community Challenges (if any)
                   const HomeActiveChallenges(),
-
-                  // Weekly trends chart
-                  Text(
-                    'Weekly Trends',
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  weeklyLogs.when(
-                    loading: () => const SizedBox(height: 180),
-                    error: (_, _) => const SizedBox.shrink(),
-                    data: (logs) => WeeklyChart(logs: logs),
-                  ),
                   const SizedBox(height: 16),
 
                   // Macro summary card
