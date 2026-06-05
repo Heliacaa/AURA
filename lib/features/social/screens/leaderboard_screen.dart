@@ -148,9 +148,13 @@ class _WeeklyLeagueOptInCard extends StatelessWidget {
     if (currentUser == null) return const SizedBox.shrink();
 
     final enabled = currentUser.leaderboardOptIn;
+    final currentWeek = AppDateUtils.weekKey();
+    final currentWeeklyXp = currentUser.weeklyXpWeek == currentWeek
+        ? currentUser.weeklyXp
+        : 0;
     final title = enabled ? 'Weekly League aktif' : 'Weekly League kapalı';
     final subtitle = enabled
-        ? '${AppDateUtils.weekKey()} · ${currentUser.weeklyXp} XP'
+        ? '$currentWeek · $currentWeeklyXp XP'
         : 'Sıralamada görünmek için katıl.';
 
     return Padding(

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_utils.dart';
 import '../../auth/providers/auth_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
@@ -44,6 +45,11 @@ class ProfileScreen extends ConsumerWidget {
           ),
           data: (user) {
             if (user == null) return const SizedBox.shrink();
+
+            final currentWeek = AppDateUtils.weekKey();
+            final currentWeeklyXp = user.weeklyXpWeek == currentWeek
+                ? user.weeklyXp
+                : 0;
 
             return SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -123,7 +129,7 @@ class ProfileScreen extends ConsumerWidget {
                     children: [
                       _InfoRow(label: 'XP', value: '${user.xp}'),
                       _InfoRow(label: 'Seri', value: '${user.streakDays} gün'),
-                      _InfoRow(label: 'Haftalık XP', value: '${user.weeklyXp}'),
+                      _InfoRow(label: 'Haftalık XP', value: '$currentWeeklyXp'),
                     ],
                   ),
                   const SizedBox(height: 12),

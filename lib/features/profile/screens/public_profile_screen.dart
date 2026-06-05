@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/date_utils.dart';
 import '../../../shared/models/public_profile_model.dart';
 import '../../social/providers/friends_provider.dart';
 
@@ -301,12 +302,17 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentWeek = AppDateUtils.weekKey();
+    final currentWeeklyXp = profile.weeklyXpWeek == currentWeek
+        ? profile.weeklyXp
+        : 0;
+
     return _InfoCard(
       title: 'Herkese Açık İstatistikler',
       rows: [
         _InfoItem('XP', '${profile.xp}'),
         _InfoItem('Seri', '${profile.streakDays} gün'),
-        _InfoItem('Haftalık XP', '${profile.weeklyXp}'),
+        _InfoItem('Haftalık XP', '$currentWeeklyXp'),
       ],
     );
   }
