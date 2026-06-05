@@ -119,6 +119,52 @@ void main() {
     });
 
     test(
+      'syncMilestoneActivities leaves existing activities untouched',
+      () async {
+        final service = FirestoreService(firestore: fakeFirestore);
+        await fakeFirestore.collection('users').doc('uid1').set({
+          'displayName': 'Legacy User',
+          'email': 'legacy@test.com',
+          'currentLevel': 2,
+          'currentClass': UserModel.classForLevel(2),
+          'xp': 25,
+          'xpToNextLevel': 1200,
+          'shareMilestones': true,
+          'avatarUrl': '',
+          'createdAt': Timestamp.fromDate(DateTime(2024, 1, 1)),
+          'lastActiveDate': Timestamp.fromDate(DateTime(2024, 1, 1)),
+        });
+        await fakeFirestore
+            .collection('social_activities')
+            .doc('level_uid1_2')
+            .set({
+              'type': 'level_up',
+              'actorUid': 'uid1',
+              'actorDisplayName': 'Legacy User',
+              'actorAvatarUrl': '',
+              'title': 'Existing title',
+              'description': 'Existing description',
+              'metadata': {'level': 2, 'className': UserModel.classForLevel(2)},
+              'visibility': 'friends',
+              'createdAt': Timestamp.fromDate(DateTime(2024, 2, 1)),
+              'isSpecialAchievement': true,
+            });
+
+        await service.syncMilestoneActivities('uid1');
+
+        final activity = await fakeFirestore
+            .collection('social_activities')
+            .doc('level_uid1_2')
+            .get();
+        expect(activity.data()?['title'], 'Existing title');
+        expect(
+          (activity.data()?['createdAt'] as Timestamp).toDate(),
+          DateTime(2024, 2, 1),
+        );
+      },
+    );
+
+    test(
       'update profile settings writes private and public profile data',
       () async {
         final service = FirestoreService(firestore: fakeFirestore);

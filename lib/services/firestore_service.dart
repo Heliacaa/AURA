@@ -1204,8 +1204,16 @@ class FirestoreService {
     if (!user.shareMilestones) return;
 
     try {
+      final activityRef = _socialActivity(activityId);
+      try {
+        final existing = await activityRef.get();
+        if (existing.exists) return;
+      } on FirebaseException catch (error) {
+        if (error.code != 'permission-denied') rethrow;
+      }
+
       final normalizedUser = await _ensureSocialProfileFields(user);
-      await _socialActivity(activityId).set({
+      await activityRef.set({
         'type': type,
         'actorUid': normalizedUser.uid,
         'actorDisplayName': normalizedUser.displayName,
