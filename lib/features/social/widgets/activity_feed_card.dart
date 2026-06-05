@@ -28,10 +28,9 @@ class ActivityFeedCard extends StatelessWidget {
   });
 
   void _onLikePressed() {
+    if (onLikePressed == null) return;
     AppHaptics.lightImpact();
-    if (onLikePressed != null) {
-      onLikePressed!();
-    }
+    onLikePressed!();
   }
 
   @override
@@ -123,35 +122,37 @@ class ActivityFeedCard extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: _onLikePressed,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        isLikedByMe ? Icons.favorite : Icons.favorite_border,
-                        size: 16,
-                        color: isLikedByMe
-                            ? Colors.redAccent
-                            : AppTheme.textSecondary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isLikedByMe ? "Tebrik Ettin" : "Tebrik Et",
-                        style: GoogleFonts.poppins(
+                if (onLikePressed != null) ...[
+                  const SizedBox(height: 8),
+                  GestureDetector(
+                    onTap: _onLikePressed,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isLikedByMe ? Icons.favorite : Icons.favorite_border,
+                          size: 16,
                           color: isLikedByMe
                               ? Colors.redAccent
                               : AppTheme.textSecondary,
-                          fontSize: 12,
-                          fontWeight: isLikedByMe
-                              ? FontWeight.bold
-                              : FontWeight.normal,
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: 4),
+                        Text(
+                          isLikedByMe ? "Tebrik Ettin" : "Tebrik Et",
+                          style: GoogleFonts.poppins(
+                            color: isLikedByMe
+                                ? Colors.redAccent
+                                : AppTheme.textSecondary,
+                            fontSize: 12,
+                            fontWeight: isLikedByMe
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ],
               ],
             ),
           ),

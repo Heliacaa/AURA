@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/date_utils.dart';
 import '../features/social/models/activity.dart';
 import '../features/social/models/challenge.dart';
+import '../shared/models/user_model.dart';
 
 class SocialService {
   SocialService({FirebaseFirestore? firestore, FirebaseAuth? auth})
@@ -139,8 +140,9 @@ class SocialService {
 
   Stream<List<ActivityFeedItem>> getActivitiesStream(
     String uid,
-    Iterable<String> friendUids,
-  ) {
+    Iterable<String> friendUids, {
+    Map<String, DateTime> fallbackActivityTimes = const {},
+  }) {
     late final StreamController<List<ActivityFeedItem>> controller;
     final subscriptions = <StreamSubscription>[];
     final sourceItems = <int, List<ActivityFeedItem>>{};
@@ -148,7 +150,11 @@ class SocialService {
     var likedActivityIds = <String>{};
     var likesReady = false;
 
-    final actorUids = <String>{uid, ...friendUids}.toList();
+    final friendUidList = friendUids
+        .where((friendUid) => friendUid.isNotEmpty && friendUid != uid)
+        .toSet()
+        .toList();
+    final actorUids = <String>{uid, ...friendUidList}.toList();
     final queries = <Query<Map<String, dynamic>>>[
       _db
           .collection('social_activities')
@@ -163,16 +169,25 @@ class SocialService {
             .limit(50),
       ),
     ];
+    final sourceCount = queries.length + friendUidList.length;
 
     void emit() {
-      if (!likesReady || readySources.length != queries.length) return;
+      if (!likesReady || readySources.length != sourceCount) return;
 
       final byId = <String, ActivityFeedItem>{};
       for (final items in sourceItems.values) {
         for (final item in items) {
-          byId[item.id] = item.copyWith(
-            isLikedByCurrentUser: likedActivityIds.contains(item.id),
+          final merged = item.copyWith(
+            isLikedByCurrentUser:
+                !item.isSynthetic && likedActivityIds.contains(item.id),
           );
+          final existing = byId[merged.id];
+          if (existing == null ||
+              (existing.isSynthetic && !merged.isSynthetic) ||
+              (existing.isSynthetic == merged.isSynthetic &&
+                  merged.createdAt.isAfter(existing.createdAt))) {
+            byId[merged.id] = merged;
+          }
         }
       }
 
@@ -223,6 +238,31 @@ class SocialService {
         );
       }
 
+      for (var index = 0; index < friendUidList.length; index++) {
+        final friendUid = friendUidList[index];
+        final sourceIndex = queries.length + index;
+        subscriptions.add(
+          _db
+              .collection('publicProfiles')
+              .doc(friendUid)
+              .snapshots()
+              .listen(
+                (snapshot) {
+                  markSourceReady(
+                    sourceIndex,
+                    _fallbackActivitiesFromPublicProfile(
+                      snapshot,
+                      fallbackCreatedAt: fallbackActivityTimes[friendUid],
+                    ),
+                  );
+                },
+                onError: (Object error, StackTrace stackTrace) {
+                  handleSourceError(sourceIndex, error, stackTrace);
+                },
+              ),
+        );
+      }
+
       subscriptions.add(
         _db
             .collection('users')
@@ -248,6 +288,75 @@ class SocialService {
       onCancel: cancel,
     );
     return controller.stream;
+  }
+
+  List<ActivityFeedItem> _fallbackActivitiesFromPublicProfile(
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    DateTime? fallbackCreatedAt,
+  }) {
+    if (!doc.exists) return const [];
+
+    final data = doc.data() ?? const <String, dynamic>{};
+    final actorUid = data['uid'] as String? ?? doc.id;
+    if (actorUid.isEmpty) return const [];
+
+    final displayName = data['displayName'] as String? ?? 'AURA Kullanıcısı';
+    final avatarUrl = data['avatarUrl'] as String? ?? '';
+    final currentLevel = (data['currentLevel'] as num?)?.toInt() ?? 1;
+    final currentClass =
+        data['currentClass'] as String? ??
+        UserModel.classForLevel(currentLevel);
+    final streakDays = (data['streakDays'] as num?)?.toInt() ?? 0;
+    final createdAt =
+        fallbackCreatedAt ??
+        (data['updatedAt'] as Timestamp?)?.toDate() ??
+        DateTime.now();
+
+    final items = <ActivityFeedItem>[];
+    if (currentLevel > 1) {
+      items.add(
+        ActivityFeedItem(
+          id: 'level_${actorUid}_$currentLevel',
+          type: ActivityType.levelUp,
+          actorUid: actorUid,
+          actorDisplayName: displayName,
+          actorAvatarUrl: avatarUrl,
+          title: 'Seviye $currentLevel!',
+          description: '$displayName, $currentLevel. seviyeye yükseldi.',
+          metadata: {'level': currentLevel, 'className': currentClass},
+          visibility: 'friends',
+          createdAt: createdAt,
+          isSpecialAchievement: true,
+          isSynthetic: true,
+        ),
+      );
+    }
+
+    if (_isStreakMilestone(streakDays)) {
+      items.add(
+        ActivityFeedItem(
+          id: 'streak_${actorUid}_$streakDays',
+          type: ActivityType.streakMilestone,
+          actorUid: actorUid,
+          actorDisplayName: displayName,
+          actorAvatarUrl: avatarUrl,
+          title: '🔥 $streakDays Günlük Seri!',
+          description: '$displayName, $streakDays günlük seriye ulaştı.',
+          metadata: {'days': streakDays},
+          visibility: 'friends',
+          createdAt: createdAt,
+          isSpecialAchievement: true,
+          isSynthetic: true,
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  bool _isStreakMilestone(int days) {
+    return const {3, 7, 10, 30, 50, 100}.contains(days) ||
+        (days > 100 && days % 100 == 0);
   }
 
   Future<void> toggleLikeActivity(String activityId) async {

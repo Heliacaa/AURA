@@ -32,6 +32,7 @@ class ActivityFeedItem {
   final DateTime createdAt;
   final bool isSpecialAchievement;
   final bool isLikedByCurrentUser;
+  final bool isSynthetic;
 
   const ActivityFeedItem({
     required this.id,
@@ -46,6 +47,7 @@ class ActivityFeedItem {
     required this.createdAt,
     required this.isSpecialAchievement,
     this.isLikedByCurrentUser = false,
+    this.isSynthetic = false,
   });
 
   factory ActivityFeedItem.fromFirestore(
@@ -80,13 +82,14 @@ class ActivityFeedItem {
             DateTime.now(),
         isSpecialAchievement: data['isSpecialAchievement'] as bool? ?? false,
         isLikedByCurrentUser: isLikedByCurrentUser,
+        isSynthetic: false,
       );
     } catch (_) {
       return ActivityFeedItem.empty(doc.id);
     }
   }
 
-  ActivityFeedItem copyWith({bool? isLikedByCurrentUser}) {
+  ActivityFeedItem copyWith({bool? isLikedByCurrentUser, bool? isSynthetic}) {
     return ActivityFeedItem(
       id: id,
       type: type,
@@ -100,6 +103,7 @@ class ActivityFeedItem {
       createdAt: createdAt,
       isSpecialAchievement: isSpecialAchievement,
       isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
+      isSynthetic: isSynthetic ?? this.isSynthetic,
     );
   }
 
@@ -116,6 +120,7 @@ class ActivityFeedItem {
       visibility: 'global',
       createdAt: DateTime.now(),
       isSpecialAchievement: false,
+      isSynthetic: false,
     );
   }
 }

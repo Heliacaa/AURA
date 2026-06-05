@@ -24,13 +24,22 @@ final activitiesProvider = StreamProvider<List<ActivityFeedItem>>((ref) {
   final authState = ref.watch(authStateProvider);
   final user = authState.valueOrNull;
   if (user == null) return const Stream.empty();
-  final friendUids = (ref.watch(friendsProvider).valueOrNull ?? const [])
+  final friendships = ref.watch(friendsProvider).valueOrNull ?? const [];
+  final friendUids = friendships
       .map((friendship) => friendship.otherUid(user.uid))
       .where((uid) => uid.isNotEmpty)
       .toList();
+  final fallbackActivityTimes = {
+    for (final friendship in friendships)
+      friendship.otherUid(user.uid): friendship.updatedAt,
+  };
   return ref
       .watch(socialServiceProvider)
-      .getActivitiesStream(user.uid, friendUids);
+      .getActivitiesStream(
+        user.uid,
+        friendUids,
+        fallbackActivityTimes: fallbackActivityTimes,
+      );
 });
 
 final unreadActivityCountProvider = Provider<int>((ref) {

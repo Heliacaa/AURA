@@ -45,11 +45,13 @@ class ActivityFeedScreen extends ConsumerWidget {
               timeAgo: timeago.format(activity.createdAt, locale: 'tr'),
               isSpecialAchievement: activity.isSpecialAchievement,
               isLikedByMe: activity.isLikedByCurrentUser,
-              onLikePressed: () async {
-                await ref
-                    .read(socialServiceProvider)
-                    .toggleLikeActivity(activity.id);
-              },
+              onLikePressed: activity.isSynthetic
+                  ? null
+                  : () async {
+                      await ref
+                          .read(socialServiceProvider)
+                          .toggleLikeActivity(activity.id);
+                    },
               onUserTap: activity.actorUid.isEmpty
                   ? null
                   : () => context.push('/public-profile/${activity.actorUid}'),

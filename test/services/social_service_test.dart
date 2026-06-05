@@ -110,6 +110,63 @@ void main() {
     );
   });
 
+  test('feed synthesizes friend milestones from public profile', () async {
+    final fallbackTime = DateTime(2026, 6, 4, 9);
+    await firestore.collection('publicProfiles').doc('u2').set({
+      'uid': 'u2',
+      'displayName': 'Friend',
+      'avatarUrl': '',
+      'currentLevel': 3,
+      'currentClass': 'Novice',
+      'streakDays': 7,
+      'updatedAt': Timestamp.fromDate(DateTime(2026, 6, 4, 14)),
+    });
+
+    final activities = await service
+        .getActivitiesStream(
+          'u1',
+          const ['u2'],
+          fallbackActivityTimes: {'u2': fallbackTime},
+        )
+        .firstWhere((items) => items.length == 2);
+
+    expect(activities.map((activity) => activity.id), [
+      'level_u2_3',
+      'streak_u2_7',
+    ]);
+    expect(activities.every((activity) => activity.isSynthetic), isTrue);
+    expect(
+      activities.every((activity) => activity.createdAt == fallbackTime),
+      isTrue,
+    );
+  });
+
+  test('real activity wins over synthesized public profile fallback', () async {
+    await seedActivity(
+      'level_u2_3',
+      actorUid: 'u2',
+      visibility: 'friends',
+      createdAt: DateTime(2026, 6, 4, 12),
+    );
+    await firestore.collection('publicProfiles').doc('u2').set({
+      'uid': 'u2',
+      'displayName': 'Friend',
+      'avatarUrl': '',
+      'currentLevel': 3,
+      'currentClass': 'Novice',
+      'streakDays': 0,
+      'updatedAt': Timestamp.fromDate(DateTime(2026, 6, 4, 14)),
+    });
+
+    final activities = await service
+        .getActivitiesStream('u1', const ['u2'])
+        .firstWhere((items) => items.any((item) => item.id == 'level_u2_3'));
+    final activity = activities.singleWhere((item) => item.id == 'level_u2_3');
+
+    expect(activity.title, 'level_u2_3');
+    expect(activity.isSynthetic, isFalse);
+  });
+
   test('challenge totals are derived from contribution documents', () async {
     final challenge = firestore.collection('social_challenges').doc('steps');
     await challenge.set({
