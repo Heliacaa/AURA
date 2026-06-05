@@ -78,6 +78,38 @@ class DailyGoals {
   }
 }
 
+class NotificationPreferences {
+  final bool waterReminders;
+  final bool dailyGoalReminder;
+
+  const NotificationPreferences({
+    this.waterReminders = false,
+    this.dailyGoalReminder = false,
+  });
+
+  factory NotificationPreferences.fromMap(Map<String, dynamic> map) {
+    return NotificationPreferences(
+      waterReminders: map['waterReminders'] as bool? ?? false,
+      dailyGoalReminder: map['dailyGoalReminder'] as bool? ?? false,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'waterReminders': waterReminders,
+    'dailyGoalReminder': dailyGoalReminder,
+  };
+
+  NotificationPreferences copyWith({
+    bool? waterReminders,
+    bool? dailyGoalReminder,
+  }) {
+    return NotificationPreferences(
+      waterReminders: waterReminders ?? this.waterReminders,
+      dailyGoalReminder: dailyGoalReminder ?? this.dailyGoalReminder,
+    );
+  }
+}
+
 class UserModel {
   final String uid;
   final String displayName;
@@ -99,7 +131,9 @@ class UserModel {
   final bool leaderboardOptIn;
   final int weeklyXp;
   final String weeklyXpWeek;
-  final String? fcmToken;
+  final bool shareMilestones;
+  final NotificationPreferences notificationPreferences;
+  final DateTime? lastSocialFeedReadAt;
 
   const UserModel({
     required this.uid,
@@ -122,7 +156,9 @@ class UserModel {
     this.leaderboardOptIn = false,
     this.weeklyXp = 0,
     this.weeklyXpWeek = '',
-    this.fcmToken,
+    this.shareMilestones = true,
+    this.notificationPreferences = const NotificationPreferences(),
+    this.lastSocialFeedReadAt,
   });
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -153,7 +189,14 @@ class UserModel {
       leaderboardOptIn: data['leaderboardOptIn'] as bool? ?? false,
       weeklyXp: (data['weeklyXp'] as num?)?.toInt() ?? 0,
       weeklyXpWeek: data['weeklyXpWeek'] as String? ?? '',
-      fcmToken: data['fcmToken'] as String?,
+      shareMilestones: data['shareMilestones'] as bool? ?? true,
+      notificationPreferences: data['notificationPreferences'] != null
+          ? NotificationPreferences.fromMap(
+              data['notificationPreferences'] as Map<String, dynamic>,
+            )
+          : const NotificationPreferences(),
+      lastSocialFeedReadAt: (data['lastSocialFeedReadAt'] as Timestamp?)
+          ?.toDate(),
     );
   }
 
@@ -178,7 +221,10 @@ class UserModel {
     'leaderboardOptIn': leaderboardOptIn,
     'weeklyXp': weeklyXp,
     'weeklyXpWeek': weeklyXpWeek,
-    if (fcmToken != null) 'fcmToken': fcmToken,
+    'shareMilestones': shareMilestones,
+    'notificationPreferences': notificationPreferences.toMap(),
+    if (lastSocialFeedReadAt != null)
+      'lastSocialFeedReadAt': Timestamp.fromDate(lastSocialFeedReadAt!),
   };
 
   UserModel copyWith({
@@ -199,7 +245,9 @@ class UserModel {
     bool? leaderboardOptIn,
     int? weeklyXp,
     String? weeklyXpWeek,
-    String? fcmToken,
+    bool? shareMilestones,
+    NotificationPreferences? notificationPreferences,
+    Object? lastSocialFeedReadAt = _sentinel,
   }) {
     return UserModel(
       uid: uid,
@@ -222,7 +270,12 @@ class UserModel {
       leaderboardOptIn: leaderboardOptIn ?? this.leaderboardOptIn,
       weeklyXp: weeklyXp ?? this.weeklyXp,
       weeklyXpWeek: weeklyXpWeek ?? this.weeklyXpWeek,
-      fcmToken: fcmToken ?? this.fcmToken,
+      shareMilestones: shareMilestones ?? this.shareMilestones,
+      notificationPreferences:
+          notificationPreferences ?? this.notificationPreferences,
+      lastSocialFeedReadAt: lastSocialFeedReadAt == _sentinel
+          ? this.lastSocialFeedReadAt
+          : lastSocialFeedReadAt as DateTime?,
     );
   }
 

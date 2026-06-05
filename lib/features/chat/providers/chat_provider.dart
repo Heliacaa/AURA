@@ -58,11 +58,15 @@ class ChatNotifier extends StateNotifier<AsyncValue<void>> {
       final challenges = ref.read(challengesProvider).valueOrNull ?? [];
       String communityChallengesContext = '';
       if (challenges.isNotEmpty) {
-        communityChallengesContext = '\nAktif Topluluk Hedefleri (Meydan Okumalar):\n';
+        communityChallengesContext =
+            '\nAktif Topluluk Hedefleri (Meydan Okumalar):\n';
         for (var challenge in challenges) {
           final isParticipating = challenge.participants.contains(authUser.uid);
-          final status = isParticipating ? 'Kullanıcı bu hedefe KATILDI.' : 'Kullanıcı bu hedefe HENÜZ KATILMADI.';
-          communityChallengesContext += '- ${challenge.title}: ${challenge.currentAmount} / ${challenge.targetAmount} ${challenge.unit}. $status\n';
+          final status = isParticipating
+              ? 'Kullanıcı bu hedefe KATILDI.'
+              : 'Kullanıcı bu hedefe HENÜZ KATILMADI.';
+          communityChallengesContext +=
+              '- ${challenge.title}: ${challenge.currentAmount} / ${challenge.targetAmount} ${challenge.unit}. $status\n';
         }
       }
 

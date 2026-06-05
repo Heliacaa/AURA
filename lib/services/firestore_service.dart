@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../shared/models/user_model.dart';
 import '../shared/models/daily_log_model.dart';
 import '../shared/models/meal_model.dart';
@@ -55,6 +56,9 @@ class FirestoreService {
   DocumentReference _leaderboardEntry(String weekKey, String uid) =>
       _leaderboardEntries(weekKey).doc(uid);
 
+  DocumentReference _socialActivity(String activityId) =>
+      _db.collection('social_activities').doc(activityId);
+
   // ─── User ─────────────────────────────────────────────────
 
   /// Create initial user document with defaults
@@ -109,6 +113,35 @@ class FirestoreService {
     if ((data['emailLower'] as String? ?? '').isEmpty && email.isNotEmpty) {
       updates['emailLower'] = email.toLowerCase();
     }
+    if (!data.containsKey('avatarUrl')) {
+      updates['avatarUrl'] = avatarUrl;
+    }
+    if (!data.containsKey('currentLevel')) {
+      updates['currentLevel'] = 1;
+    }
+    final currentLevel = (data['currentLevel'] as num?)?.toInt() ?? 1;
+    if (!data.containsKey('currentClass')) {
+      updates['currentClass'] = UserModel.classForLevel(currentLevel);
+    }
+    if (!data.containsKey('xp')) {
+      updates['xp'] = 0;
+    }
+    if (!data.containsKey('xpToNextLevel')) {
+      updates['xpToNextLevel'] = UserModel.xpForLevel(currentLevel);
+    }
+    if (!data.containsKey('shareMilestones')) {
+      updates['shareMilestones'] = true;
+    }
+    final storedNotificationPreferences = data['notificationPreferences'];
+    if (storedNotificationPreferences is! Map ||
+        !storedNotificationPreferences.containsKey('waterReminders') ||
+        !storedNotificationPreferences.containsKey('dailyGoalReminder')) {
+      updates['notificationPreferences'] = storedNotificationPreferences is Map
+          ? NotificationPreferences.fromMap(
+              Map<String, dynamic>.from(storedNotificationPreferences),
+            ).toMap()
+          : const NotificationPreferences().toMap();
+    }
     if (updates.isNotEmpty) {
       await _userDoc(uid).update(updates);
     }
@@ -131,6 +164,12 @@ class FirestoreService {
     await _userDoc(uid).update(data);
   }
 
+  Future<void> markSocialFeedRead(String uid) async {
+    await _userDoc(
+      uid,
+    ).update({'lastSocialFeedReadAt': FieldValue.serverTimestamp()});
+  }
+
   Future<void> updateProfileSettings({
     required String uid,
     required String displayName,
@@ -140,6 +179,8 @@ class FirestoreService {
     required DailyGoals dailyGoals,
     required String socialEnergyLevel,
     required bool leaderboardOptIn,
+    required bool shareMilestones,
+    required NotificationPreferences notificationPreferences,
   }) async {
     await _userDoc(uid).update({
       'displayName': displayName,
@@ -148,6 +189,8 @@ class FirestoreService {
       'weightKg': weightKg,
       'dailyGoals': dailyGoals.toMap(),
       'socialEnergyLevel': socialEnergyLevel,
+      'shareMilestones': shareMilestones,
+      'notificationPreferences': notificationPreferences.toMap(),
     });
 
     final doc = await _userDoc(uid).get();
@@ -211,7 +254,11 @@ class FirestoreService {
 
     final userDoc = await _userDoc(uid).get();
     if (userDoc.exists) {
-      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+      final user = UserModel.fromFirestore(userDoc);
+      await _syncProfileProjections(user);
+      if (leveledUp) {
+        await _publishLevelActivityBestEffort(user);
+      }
     }
 
     return leveledUp;
@@ -226,6 +273,7 @@ class FirestoreService {
     required String taskDescription,
   }) async {
     var claimed = false;
+    var leveledUp = false;
     final currentWeek = AppDateUtils.weekKey();
 
     await _db.runTransaction((transaction) async {
@@ -252,6 +300,7 @@ class FirestoreService {
         statDeltas: statDeltas,
         currentWeek: currentWeek,
       );
+      leveledUp = reward.leveledUp;
       _writeRewardUpdates(
         transaction: transaction,
         userRef: userRef,
@@ -276,7 +325,11 @@ class FirestoreService {
 
     final userDoc = await _userDoc(uid).get();
     if (userDoc.exists) {
-      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+      final user = UserModel.fromFirestore(userDoc);
+      await _syncProfileProjections(user);
+      if (leveledUp) {
+        await _publishLevelActivityBestEffort(user);
+      }
     }
 
     if (claimed) {
@@ -295,6 +348,7 @@ class FirestoreService {
     required String taskDescription,
   }) async {
     var claimed = false;
+    var leveledUp = false;
     final currentWeek = AppDateUtils.weekKey();
 
     await _db.runTransaction((transaction) async {
@@ -320,6 +374,7 @@ class FirestoreService {
         statDeltas: statDeltas,
         currentWeek: currentWeek,
       );
+      leveledUp = reward.leveledUp;
       _writeRewardUpdates(
         transaction: transaction,
         userRef: userRef,
@@ -346,7 +401,11 @@ class FirestoreService {
 
     final userDoc = await _userDoc(uid).get();
     if (userDoc.exists) {
-      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+      final user = UserModel.fromFirestore(userDoc);
+      await _syncProfileProjections(user);
+      if (leveledUp) {
+        await _publishLevelActivityBestEffort(user);
+      }
     }
 
     if (claimed) {
@@ -360,6 +419,8 @@ class FirestoreService {
 
   /// Update streak logic on app open
   Future<void> updateStreak(String uid) async {
+    var streakChanged = false;
+
     await _db.runTransaction((transaction) async {
       final userDoc = await transaction.get(_userDoc(uid));
       if (!userDoc.exists) return;
@@ -377,6 +438,7 @@ class FirestoreService {
         newStreak = 1; // Reset — gap of 2+ days
       }
       // If today → no change
+      streakChanged = newStreak != streak;
 
       transaction.update(_userDoc(uid), {
         'streakDays': newStreak,
@@ -386,7 +448,11 @@ class FirestoreService {
 
     final userDoc = await _userDoc(uid).get();
     if (userDoc.exists) {
-      await _syncProfileProjections(UserModel.fromFirestore(userDoc));
+      final user = UserModel.fromFirestore(userDoc);
+      await _syncProfileProjections(user);
+      if (streakChanged) {
+        await _publishStreakActivityBestEffort(user);
+      }
     }
   }
 
@@ -439,6 +505,9 @@ class FirestoreService {
     Map<String, dynamic> data,
   ) async {
     await _dailyLogs(uid).doc(dateKey).update(data);
+    if (data.containsKey('stepCount') || data.containsKey('waterGlasses')) {
+      await _syncChallengeContributionsBestEffort(uid, dateKey);
+    }
   }
 
   /// Calculate and update daily score
@@ -562,6 +631,7 @@ class FirestoreService {
     AchievementModel achievement,
   ) async {
     await _achievements(uid).doc(achievement.id).set(achievement.toFirestore());
+    await _publishAchievementActivityBestEffort(uid, achievement);
   }
 
   /// Unlock an achievement only if it has not been unlocked yet.
@@ -571,15 +641,19 @@ class FirestoreService {
   ) async {
     var unlocked = false;
     final achievementRef = _achievements(uid).doc(definition.id);
+    final achievement = definition.unlock();
 
     await _db.runTransaction((transaction) async {
       final doc = await transaction.get(achievementRef);
       if (doc.exists) return;
 
-      transaction.set(achievementRef, definition.unlock().toFirestore());
+      transaction.set(achievementRef, achievement.toFirestore());
       unlocked = true;
     });
 
+    if (unlocked) {
+      await _publishAchievementActivityBestEffort(uid, achievement);
+    }
     return unlocked;
   }
 
@@ -969,6 +1043,194 @@ class FirestoreService {
       // Projection writes are helpful for search/public profile discovery, but
       // the private profile save should not fail if deployed rules lag behind.
     }
+  }
+
+  Future<void> syncMilestoneActivities(String uid) async {
+    try {
+      final userDoc = await _userDoc(uid).get();
+      if (!userDoc.exists) return;
+
+      var user = UserModel.fromFirestore(userDoc);
+      if (!user.shareMilestones) return;
+
+      await _ensureSocialProfileFields(user);
+      final refreshed = await _userDoc(uid).get();
+      if (refreshed.exists) {
+        user = UserModel.fromFirestore(refreshed);
+      }
+
+      if (user.currentLevel > 1) {
+        await _publishLevelActivityBestEffort(user);
+      }
+      if (isStreakMilestone(user.streakDays)) {
+        await _publishStreakActivityBestEffort(user);
+      }
+
+      final achievementDocs = await _achievements(uid).get();
+      for (final achievementDoc in achievementDocs.docs) {
+        await _publishAchievementActivityBestEffort(
+          uid,
+          AchievementModel.fromFirestore(achievementDoc),
+        );
+      }
+    } catch (error) {
+      debugPrint('Social milestone sync failed for $uid: $error');
+    }
+  }
+
+  Future<UserModel> _ensureSocialProfileFields(UserModel user) async {
+    final normalizedClass = UserModel.classForLevel(user.currentLevel);
+    await _userDoc(user.uid).set({
+      'avatarUrl': user.avatarUrl,
+      'currentClass': normalizedClass,
+      'xp': user.xp,
+      'xpToNextLevel': user.xpToNextLevel,
+      'shareMilestones': user.shareMilestones,
+    }, SetOptions(merge: true));
+
+    return user.copyWith(currentClass: normalizedClass);
+  }
+
+  Future<void> _syncChallengeContributionsBestEffort(
+    String uid,
+    String logId,
+  ) async {
+    try {
+      final log = await _dailyLogs(uid).doc(logId).get();
+      if (!log.exists) return;
+      final logData = log.data() as Map<String, dynamic>? ?? {};
+      final challenges = await _db
+          .collection('social_challenges')
+          .where('participants', arrayContains: uid)
+          .get();
+
+      for (final challenge in challenges.docs) {
+        final challengeData = challenge.data();
+        final observedAmount = switch (challengeData['type']) {
+          'steps' => (logData['stepCount'] as num?)?.toInt() ?? 0,
+          'water' => (logData['waterGlasses'] as num?)?.toInt() ?? 0,
+          _ => 0,
+        };
+        if (observedAmount <= 0) continue;
+
+        final contributionRef = challenge.reference
+            .collection('progressContributions')
+            .doc('${uid}_$logId');
+        try {
+          await _db.runTransaction((transaction) async {
+            final existing = await transaction.get(contributionRef);
+            final creditedAmount = existing.exists
+                ? ((existing.data()?['creditedAmount'] as num?)?.toInt() ?? 0)
+                : 0;
+            if (observedAmount <= creditedAmount) return;
+
+            transaction.set(contributionRef, {
+              'challengeId': challenge.id,
+              'userId': uid,
+              'logId': logId,
+              'creditedAmount': observedAmount,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
+          });
+        } catch (_) {
+          // Challenge progress is secondary to the user's private daily log.
+        }
+      }
+    } catch (_) {
+      // Daily tracking must keep working if social collections are unavailable.
+    }
+  }
+
+  Future<void> _publishStreakActivityBestEffort(UserModel user) async {
+    if (!isStreakMilestone(user.streakDays)) return;
+    await _publishActivityBestEffort(
+      activityId: 'streak_${user.uid}_${user.streakDays}',
+      user: user,
+      type: 'streak_milestone',
+      title: '🔥 ${user.streakDays} Günlük Seri!',
+      description:
+          '${user.displayName}, ${user.streakDays} günlük seriye ulaştı.',
+      metadata: {'days': user.streakDays},
+    );
+  }
+
+  Future<void> _publishLevelActivityBestEffort(UserModel user) async {
+    final className = UserModel.classForLevel(user.currentLevel);
+    await _publishActivityBestEffort(
+      activityId: 'level_${user.uid}_${user.currentLevel}',
+      user: user,
+      type: 'level_up',
+      title: 'Seviye ${user.currentLevel}!',
+      description:
+          '${user.displayName}, ${user.currentLevel}. seviyeye yükseldi.',
+      metadata: {'level': user.currentLevel, 'className': className},
+    );
+  }
+
+  Future<void> _publishAchievementActivityBestEffort(
+    String uid,
+    AchievementModel achievement,
+  ) async {
+    try {
+      final userDoc = await _userDoc(uid).get();
+      if (!userDoc.exists) return;
+      final user = UserModel.fromFirestore(userDoc);
+      await _publishActivityBestEffort(
+        activityId: 'achievement_${user.uid}_${achievement.id}',
+        user: user,
+        type: 'achievement_unlocked',
+        title: '${achievement.icon} ${achievement.title}',
+        description:
+            '${user.displayName}, "${achievement.title}" başarısını açtı.',
+        metadata: {
+          'achievementId': achievement.id,
+          'achievementTitle': achievement.title,
+          'icon': achievement.icon,
+        },
+      );
+    } catch (_) {
+      // Achievement unlocks remain valid if the social feed is unavailable.
+    }
+  }
+
+  Future<void> _publishActivityBestEffort({
+    required String activityId,
+    required UserModel user,
+    required String type,
+    required String title,
+    required String description,
+    required Map<String, dynamic> metadata,
+  }) async {
+    if (!user.shareMilestones) return;
+
+    try {
+      final normalizedUser = await _ensureSocialProfileFields(user);
+      await _socialActivity(activityId).set({
+        'type': type,
+        'actorUid': normalizedUser.uid,
+        'actorDisplayName': normalizedUser.displayName,
+        'actorAvatarUrl': normalizedUser.avatarUrl,
+        'title': title,
+        'description': description,
+        'metadata': metadata,
+        'visibility': 'friends',
+        'createdAt': FieldValue.serverTimestamp(),
+        'isSpecialAchievement': true,
+      });
+    } on FirebaseException catch (error) {
+      debugPrint(
+        'Social activity $activityId was not published: '
+        '${error.code} ${error.message ?? ''}',
+      );
+    } catch (error) {
+      debugPrint('Social activity $activityId was not published: $error');
+      // Social sharing is best-effort and must not block primary app actions.
+    }
+  }
+
+  static bool isStreakMilestone(int days) {
+    return const {3, 7, 10, 30, 50, 100}.contains(days) ||
+        (days > 100 && days % 100 == 0);
   }
 }
 

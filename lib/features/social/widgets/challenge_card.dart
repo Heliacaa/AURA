@@ -11,6 +11,7 @@ class ChallengeCard extends StatelessWidget {
   final int targetAmount;
   final String unit;
   final bool isParticipating;
+  final bool isCompleted;
   final VoidCallback? onJoinPressed;
 
   const ChallengeCard({
@@ -22,6 +23,7 @@ class ChallengeCard extends StatelessWidget {
     required this.targetAmount,
     required this.unit,
     this.isParticipating = false,
+    this.isCompleted = false,
     this.onJoinPressed,
   });
 
@@ -61,9 +63,13 @@ class ChallengeCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(
-                Icons.local_fire_department,
-                color: Colors.orangeAccent,
+              Icon(
+                isCompleted
+                    ? Icons.verified_rounded
+                    : Icons.local_fire_department,
+                color: isCompleted
+                    ? AppTheme.secondaryAccent
+                    : Colors.orangeAccent,
               ),
             ],
           ),
@@ -113,7 +119,9 @@ class ChallengeCard extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: _onJoinPressed,
+              onPressed: isCompleted && !isParticipating
+                  ? null
+                  : _onJoinPressed,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isParticipating
                     ? AppTheme.cardBackground
@@ -127,7 +135,11 @@ class ChallengeCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
               child: Text(
-                isParticipating ? 'Ayrıl' : 'Katıl / Destek Ol',
+                isParticipating
+                    ? 'Ayrıl'
+                    : isCompleted
+                    ? 'Tamamlandı'
+                    : 'Katıl / Destek Ol',
                 style: GoogleFonts.poppins(
                   color: isParticipating
                       ? AppTheme.primaryAccent

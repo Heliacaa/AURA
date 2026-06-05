@@ -68,7 +68,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
 
     try {
       final result = await ref
-          .read(friendFunctionsServiceProvider)
+          .read(friendServiceProvider)
           .searchUserByEmail(email);
       if (!mounted) return;
       setState(() {
@@ -93,9 +93,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
       ref.invalidate(friendshipsProvider);
       if (_searchResult != null) {
         ref.invalidate(publicProfileProvider(_searchResult!.uid));
-        _searchResult = await ref
-            .read(friendFunctionsServiceProvider)
-            .getPublicProfile(_searchResult!.uid);
+        try {
+          _searchResult = await ref
+              .read(friendServiceProvider)
+              .getPublicProfile(_searchResult!.uid);
+        } catch (_) {
+          _searchResult = null;
+        }
       }
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -165,13 +169,13 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                     context.push('/public-profile/${_searchResult!.uid}'),
                 onSendRequest: () => _runAction(
                   () => ref
-                      .read(friendFunctionsServiceProvider)
+                      .read(friendServiceProvider)
                       .sendFriendRequest(_searchResult!.uid),
                   successMessage: 'Arkadaşlık isteği gönderildi.',
                 ),
                 onAccept: () => _runAction(
                   () => ref
-                      .read(friendFunctionsServiceProvider)
+                      .read(friendServiceProvider)
                       .acceptFriendRequest(_searchResult!.uid),
                   successMessage: 'Arkadaşlık isteği kabul edildi.',
                 ),
@@ -194,7 +198,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                       ? null
                       : () => _runAction(
                           () => ref
-                              .read(friendFunctionsServiceProvider)
+                              .read(friendServiceProvider)
                               .acceptFriendRequest(
                                 friendship.otherUid(currentUid),
                               ),
@@ -208,7 +212,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                       ? null
                       : () => _runAction(
                           () => ref
-                              .read(friendFunctionsServiceProvider)
+                              .read(friendServiceProvider)
                               .declineFriendRequest(
                                 friendship.otherUid(currentUid),
                               ),
@@ -234,7 +238,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
                       ? null
                       : () => _runAction(
                           () => ref
-                              .read(friendFunctionsServiceProvider)
+                              .read(friendServiceProvider)
                               .declineFriendRequest(
                                 friendship.otherUid(currentUid),
                               ),
@@ -250,8 +254,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               acting: _acting,
               onOpenProfile: (uid) => context.push('/public-profile/$uid'),
               onRemove: (uid) => _runAction(
-                () =>
-                    ref.read(friendFunctionsServiceProvider).removeFriend(uid),
+                () => ref.read(friendServiceProvider).removeFriend(uid),
                 successMessage: 'Arkadaş kaldırıldı.',
               ),
             ),

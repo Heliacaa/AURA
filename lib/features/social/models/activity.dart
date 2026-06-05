@@ -1,70 +1,121 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+enum ActivityType {
+  streakMilestone('streak_milestone'),
+  levelUp('level_up'),
+  achievementUnlocked('achievement_unlocked'),
+  communityChallengeCompleted('community_challenge_completed'),
+  unknown('unknown');
+
+  const ActivityType(this.firestoreValue);
+
+  final String firestoreValue;
+
+  static ActivityType fromValue(String? value) {
+    return ActivityType.values.firstWhere(
+      (type) => type.firestoreValue == value,
+      orElse: () => ActivityType.unknown,
+    );
+  }
+}
+
 class ActivityFeedItem {
   final String id;
-  final String userId;
-  final String userName;
-  final String userAvatarUrl;
-  final String actionTitle;
-  final String actionDescription;
-  final DateTime timestamp;
+  final ActivityType type;
+  final String actorUid;
+  final String actorDisplayName;
+  final String actorAvatarUrl;
+  final String title;
+  final String description;
+  final Map<String, dynamic> metadata;
+  final String visibility;
+  final DateTime createdAt;
   final bool isSpecialAchievement;
-  final List<String> likes;
+  final bool isLikedByCurrentUser;
 
-  ActivityFeedItem({
+  const ActivityFeedItem({
     required this.id,
-    required this.userId,
-    required this.userName,
-    required this.userAvatarUrl,
-    required this.actionTitle,
-    required this.actionDescription,
-    required this.timestamp,
-    this.isSpecialAchievement = false,
-    required this.likes,
+    required this.type,
+    required this.actorUid,
+    required this.actorDisplayName,
+    required this.actorAvatarUrl,
+    required this.title,
+    required this.description,
+    required this.metadata,
+    required this.visibility,
+    required this.createdAt,
+    required this.isSpecialAchievement,
+    this.isLikedByCurrentUser = false,
   });
 
-  factory ActivityFeedItem.fromFirestore(DocumentSnapshot doc) {
+  factory ActivityFeedItem.fromFirestore(
+    DocumentSnapshot doc, {
+    bool isLikedByCurrentUser = false,
+  }) {
     try {
-      var data = doc.data() as Map<String, dynamic>;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
       return ActivityFeedItem(
         id: doc.id,
-        userId: data['userId'] ?? '',
-        userName: data['userName'] ?? 'Kullanıcı',
-        userAvatarUrl: data['userAvatarUrl'] ?? '',
-        actionTitle: data['actionTitle'] ?? '',
-        actionDescription: data['actionDescription'] ?? '',
-        timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        isSpecialAchievement: data['isSpecialAchievement'] ?? false,
-        likes: List<String>.from(data['likes'] ?? []),
+        type: ActivityType.fromValue(data['type'] as String?),
+        actorUid:
+            data['actorUid'] as String? ?? data['userId'] as String? ?? '',
+        actorDisplayName:
+            data['actorDisplayName'] as String? ??
+            data['userName'] as String? ??
+            'AURA Kullanıcısı',
+        actorAvatarUrl:
+            data['actorAvatarUrl'] as String? ??
+            data['userAvatarUrl'] as String? ??
+            '',
+        title: data['title'] as String? ?? data['actionTitle'] as String? ?? '',
+        description:
+            data['description'] as String? ??
+            data['actionDescription'] as String? ??
+            '',
+        metadata: Map<String, dynamic>.from(data['metadata'] ?? const {}),
+        visibility: data['visibility'] as String? ?? 'global',
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ??
+            (data['timestamp'] as Timestamp?)?.toDate() ??
+            DateTime.now(),
+        isSpecialAchievement: data['isSpecialAchievement'] as bool? ?? false,
+        isLikedByCurrentUser: isLikedByCurrentUser,
       );
-    } catch (e) {
+    } catch (_) {
       return ActivityFeedItem.empty(doc.id);
     }
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'userId': userId,
-      'userName': userName,
-      'userAvatarUrl': userAvatarUrl,
-      'actionTitle': actionTitle,
-      'actionDescription': actionDescription,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'isSpecialAchievement': isSpecialAchievement,
-      'likes': likes,
-    };
+  ActivityFeedItem copyWith({bool? isLikedByCurrentUser}) {
+    return ActivityFeedItem(
+      id: id,
+      type: type,
+      actorUid: actorUid,
+      actorDisplayName: actorDisplayName,
+      actorAvatarUrl: actorAvatarUrl,
+      title: title,
+      description: description,
+      metadata: metadata,
+      visibility: visibility,
+      createdAt: createdAt,
+      isSpecialAchievement: isSpecialAchievement,
+      isLikedByCurrentUser: isLikedByCurrentUser ?? this.isLikedByCurrentUser,
+    );
   }
 
   factory ActivityFeedItem.empty(String id) {
     return ActivityFeedItem(
       id: id,
-      userId: '',
-      userName: 'Hata',
-      userAvatarUrl: '',
-      actionTitle: 'İçerik yüklenemedi',
-      actionDescription: '',
-      timestamp: DateTime.now(),
-      likes: [],
+      type: ActivityType.unknown,
+      actorUid: '',
+      actorDisplayName: 'Hata',
+      actorAvatarUrl: '',
+      title: 'İçerik yüklenemedi',
+      description: '',
+      metadata: const {},
+      visibility: 'global',
+      createdAt: DateTime.now(),
+      isSpecialAchievement: false,
     );
   }
 }

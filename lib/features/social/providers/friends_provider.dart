@@ -3,15 +3,15 @@ import '../../../shared/models/friendship_model.dart';
 import '../../../shared/models/public_profile_model.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../../services/firestore_service.dart';
-import '../../../services/friend_functions_service.dart';
+import '../../../services/friend_service.dart';
 
-final friendFunctionsServiceProvider = Provider<FriendFunctionsService>((ref) {
-  return FriendFunctionsService();
+final friendServiceProvider = Provider<FriendService>((ref) {
+  return FriendService();
 });
 
 final publicProfileProvider = FutureProvider.family<PublicProfileModel, String>(
   (ref, uid) async {
-    return ref.read(friendFunctionsServiceProvider).getPublicProfile(uid);
+    return ref.read(friendServiceProvider).getPublicProfile(uid);
   },
 );
 

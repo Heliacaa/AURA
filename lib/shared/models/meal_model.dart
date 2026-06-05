@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class MealModel {
   final String? id;
   final DateTime timestamp;
-  final String imageUrl;
   final String detectedFood;
   final int calories;
   final double protein;
@@ -14,7 +13,6 @@ class MealModel {
   const MealModel({
     this.id,
     required this.timestamp,
-    this.imageUrl = '',
     required this.detectedFood,
     required this.calories,
     required this.protein,
@@ -28,7 +26,6 @@ class MealModel {
     return MealModel(
       id: doc.id,
       timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      imageUrl: data['imageUrl'] as String? ?? '',
       detectedFood: data['detectedFood'] as String? ?? '',
       calories: (data['calories'] as num?)?.toInt() ?? 0,
       protein: (data['protein'] as num?)?.toDouble() ?? 0.0,
@@ -40,7 +37,6 @@ class MealModel {
 
   Map<String, dynamic> toFirestore() => {
     'timestamp': Timestamp.fromDate(timestamp),
-    'imageUrl': imageUrl,
     'detectedFood': detectedFood,
     'calories': calories,
     'protein': protein,
@@ -61,11 +57,10 @@ class MealModel {
     );
   }
 
-  MealModel copyWith({String? imageUrl, DateTime? timestamp}) {
+  MealModel copyWith({DateTime? timestamp}) {
     return MealModel(
       id: id,
       timestamp: timestamp ?? this.timestamp,
-      imageUrl: imageUrl ?? this.imageUrl,
       detectedFood: detectedFood,
       calories: calories,
       protein: protein,

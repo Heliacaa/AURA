@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:aura/shared/models/user_model.dart';
 
@@ -86,6 +87,24 @@ void main() {
     });
   });
 
+  group('NotificationPreferences', () {
+    test('local reminders default to off', () {
+      const preferences = NotificationPreferences();
+      expect(preferences.waterReminders, isFalse);
+      expect(preferences.dailyGoalReminder, isFalse);
+    });
+
+    test('fromMap and toMap round-trip', () {
+      const preferences = NotificationPreferences(
+        waterReminders: true,
+        dailyGoalReminder: true,
+      );
+      final restored = NotificationPreferences.fromMap(preferences.toMap());
+      expect(restored.waterReminders, isTrue);
+      expect(restored.dailyGoalReminder, isTrue);
+    });
+  });
+
   group('UserModel', () {
     late UserModel user;
 
@@ -119,7 +138,12 @@ void main() {
         leaderboardOptIn: true,
         weeklyXp: 320,
         weeklyXpWeek: '2026-W18',
-        fcmToken: 'token123',
+        shareMilestones: false,
+        notificationPreferences: const NotificationPreferences(
+          waterReminders: true,
+          dailyGoalReminder: true,
+        ),
+        lastSocialFeedReadAt: DateTime(2026, 6, 4, 12),
       );
     });
 
@@ -206,21 +230,29 @@ void main() {
       expect(map['leaderboardOptIn'], isTrue);
       expect(map['weeklyXp'], 320);
       expect(map['weeklyXpWeek'], '2026-W18');
-      expect(map['fcmToken'], 'token123');
+      expect(map['shareMilestones'], isFalse);
+      expect(map['notificationPreferences']['waterReminders'], isTrue);
+      expect(map['notificationPreferences']['dailyGoalReminder'], isTrue);
+      expect(
+        (map['lastSocialFeedReadAt'] as Timestamp).toDate(),
+        DateTime(2026, 6, 4, 12),
+      );
       expect(map['stats']['strength'], 10);
       expect(map['dailyGoals']['steps'], 12000);
     });
 
-    test('toFirestore omits fcmToken when null', () {
+    test('social and notification preferences use safe defaults', () {
       final model = UserModel(
         uid: 'u1',
-        displayName: 'No Token',
-        email: 'no@token.com',
+        displayName: 'Default Preferences',
+        email: 'defaults@test.com',
         createdAt: DateTime(2024, 1, 1),
         lastActiveDate: DateTime(2024, 1, 1),
       );
       final map = model.toFirestore();
-      expect(map.containsKey('fcmToken'), isFalse);
+      expect(map['shareMilestones'], isTrue);
+      expect(map['notificationPreferences']['waterReminders'], isFalse);
+      expect(map['notificationPreferences']['dailyGoalReminder'], isFalse);
     });
   });
 }

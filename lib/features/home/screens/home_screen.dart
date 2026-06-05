@@ -17,7 +17,6 @@ import '../widgets/macro_summary_card.dart';
 import '../widgets/sleep_card.dart';
 import '../widgets/daily_quests_card.dart';
 import '../widgets/home_active_challenges.dart';
-import '../../social/providers/social_providers.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -473,9 +472,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     if (!hasMeaningfulDelta && !hasWaited) return;
 
-    final oldSteps = _lastWrittenSteps ?? 0;
-    final addedSteps = steps - oldSteps;
-
     _lastWrittenSteps = steps;
     _lastStepWriteAt = now;
 
@@ -485,11 +481,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         AppDateUtils.todayKey(),
         {'stepCount': steps},
       );
-      if (addedSteps > 0) {
-        await ref
-            .read(socialServiceProvider)
-            .incrementChallengeProgress('steps', addedSteps);
-      }
     } catch (e) {
       debugPrint('Live step Firestore sync error: $e');
     }
@@ -540,18 +531,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       if (uid == null) return;
       final today = AppDateUtils.todayKey();
 
-      final oldLog = ref.read(todayLogProvider).valueOrNull;
-      int addedSteps = result - (oldLog?.stepCount ?? 0);
-
       await FirestoreService.instance.updateDailyLog(uid, today, {
         'stepCount': result,
       });
-
-      if (addedSteps > 0) {
-        await ref
-            .read(socialServiceProvider)
-            .incrementChallengeProgress('steps', addedSteps);
-      }
     }
   }
 
@@ -562,11 +544,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     await FirestoreService.instance.updateDailyLog(uid, today, {
       'waterGlasses': current + 1,
     });
-
-    // Topluluk hedefine yansıt (Water)
-    await ref
-        .read(socialServiceProvider)
-        .incrementChallengeProgress('water', 1);
   }
 
   Future<void> _showSleepDialog(BuildContext context) async {

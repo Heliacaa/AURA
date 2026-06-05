@@ -9,9 +9,6 @@ class ChallengesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Sadece development için seed datayı tetikler, asıl prod'da backend halleder.
-    ref.read(loadMockSocialDataProvider);
-
     final challengesAsyncValue = ref.watch(challengesProvider);
     final currentUserId = ref.watch(currentUserIdProvider);
 
@@ -31,7 +28,9 @@ class ChallengesScreen extends ConsumerWidget {
           itemCount: challenges.length,
           itemBuilder: (context, index) {
             final challenge = challenges[index];
-            final isParticipating = currentUserId != null && challenge.participants.contains(currentUserId);
+            final isParticipating =
+                currentUserId != null &&
+                challenge.participants.contains(currentUserId);
 
             return ChallengeCard(
               title: challenge.title,
@@ -41,16 +40,24 @@ class ChallengesScreen extends ConsumerWidget {
               targetAmount: challenge.targetAmount,
               unit: challenge.unit,
               isParticipating: isParticipating,
+              isCompleted: challenge.isCompleted,
               onJoinPressed: () {
-                ref.read(socialServiceProvider).toggleChallengeParticipation(challenge.id);
+                ref
+                    .read(socialServiceProvider)
+                    .toggleChallengeParticipation(challenge.id);
               },
             );
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.primaryAccent)),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppTheme.primaryAccent),
+      ),
       error: (error, stack) => Center(
-        child: Text("Hata oluştu: ${error.toString()}", style: const TextStyle(color: Colors.redAccent)),
+        child: Text(
+          "Hata oluştu: ${error.toString()}",
+          style: const TextStyle(color: Colors.redAccent),
+        ),
       ),
     );
   }

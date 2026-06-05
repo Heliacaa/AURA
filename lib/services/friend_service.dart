@@ -4,8 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../core/utils/date_utils.dart';
 import '../shared/models/public_profile_model.dart';
 
-class FriendFunctionsService {
-  FriendFunctionsService({FirebaseFirestore? firestore, FirebaseAuth? auth})
+class FriendService {
+  FriendService({FirebaseFirestore? firestore, FirebaseAuth? auth})
     : _db = firestore ?? FirebaseFirestore.instance,
       _auth = auth ?? FirebaseAuth.instance;
 
@@ -107,7 +107,7 @@ class FriendFunctionsService {
     }
 
     final friendshipRef = _friendshipRef(fromUid, toUid);
-    final existing = await _getExistingFriendship(friendshipRef);
+    final existing = await _findFriendshipDoc(fromUid, toUid);
     if (existing != null && existing.exists) {
       final status =
           (existing.data() as Map<String, dynamic>? ?? {})['status'] as String?;
@@ -135,7 +135,16 @@ class FriendFunctionsService {
   }
 
   Future<void> acceptFriendRequest(String otherUid) async {
-    await _friendshipRef(_currentUid(), otherUid).update({
+    final friendship = await _findFriendshipDoc(_currentUid(), otherUid);
+    if (friendship == null || !friendship.exists) {
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'not-found',
+        message: 'Arkadaşlık isteği bulunamadı.',
+      );
+    }
+
+    await friendship.reference.update({
       'status': 'accepted',
       'updatedAt': FieldValue.serverTimestamp(),
       'acceptedAt': FieldValue.serverTimestamp(),
@@ -143,11 +152,15 @@ class FriendFunctionsService {
   }
 
   Future<void> declineFriendRequest(String otherUid) async {
-    await _friendshipRef(_currentUid(), otherUid).delete();
+    final friendship = await _findFriendshipDoc(_currentUid(), otherUid);
+    if (friendship == null || !friendship.exists) return;
+    await friendship.reference.delete();
   }
 
   Future<void> removeFriend(String otherUid) async {
-    await _friendshipRef(_currentUid(), otherUid).delete();
+    final friendship = await _findFriendshipDoc(_currentUid(), otherUid);
+    if (friendship == null || !friendship.exists) return;
+    await friendship.reference.delete();
   }
 
   Future<PublicProfileModel> _profileFromPublicDoc(
@@ -213,7 +226,7 @@ class FriendFunctionsService {
     final uid = _currentUid();
     if (uid == targetUid) return 'self';
 
-    final doc = await _getDoc(_friendshipRef(uid, targetUid));
+    final doc = await _findFriendshipDoc(uid, targetUid);
     if (doc == null || !doc.exists) return 'none';
     final data = doc.data() as Map<String, dynamic>? ?? {};
     final status = data['status'] as String? ?? 'none';
@@ -288,6 +301,35 @@ class FriendFunctionsService {
     return _db.collection('friendships').doc(_friendshipId(uidA, uidB));
   }
 
+  Future<DocumentSnapshot?> _findFriendshipDoc(String uidA, String uidB) async {
+    final direct = await _getDoc(_friendshipRef(uidA, uidB));
+    if (direct != null && direct.exists) return direct;
+
+    try {
+      final snap = await _db
+          .collection('friendships')
+          .where('participantUids', arrayContains: uidA)
+          .get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final participants = List<String>.from(
+          data['participantUids'] ?? const [],
+        );
+        final requesterUid = data['requesterUid'] as String? ?? '';
+        final recipientUid = data['recipientUid'] as String? ?? '';
+        final referencesOtherUser =
+            participants.contains(uidB) ||
+            (requesterUid == uidA && recipientUid == uidB) ||
+            (requesterUid == uidB && recipientUid == uidA);
+        if (referencesOtherUser) return doc;
+      }
+    } on FirebaseException {
+      return null;
+    }
+
+    return null;
+  }
+
   String _friendshipId(String uidA, String uidB) {
     final ids = [uidA, uidB]..sort();
     return '${ids[0]}_${ids[1]}';
@@ -319,17 +361,6 @@ class FriendFunctionsService {
       return snap.docs.isEmpty ? null : snap.docs.first;
     } on FirebaseException {
       return null;
-    }
-  }
-
-  Future<DocumentSnapshot?> _getExistingFriendship(
-    DocumentReference ref,
-  ) async {
-    try {
-      return await ref.get();
-    } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') return null;
-      rethrow;
     }
   }
 }

@@ -10,6 +10,7 @@ import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'services/notification_service.dart';
+import 'features/auth/providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,9 +21,7 @@ void main() async {
     debugPrint("Ortam değişkenleri (.env) yüklenemedi: $e");
   }
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Enable Firestore offline persistence (skip on web — it uses indexedDb by default)
   if (!kIsWeb) {
@@ -34,19 +33,31 @@ void main() async {
   // Initialize notifications
   await NotificationService.instance.initialize();
 
-  runApp(
-    const ProviderScope(
-      child: AuraApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: AuraApp()));
 }
 
-class AuraApp extends ConsumerWidget {
+class AuraApp extends ConsumerStatefulWidget {
   const AuraApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AuraApp> createState() => _AuraAppState();
+}
+
+class _AuraAppState extends ConsumerState<AuraApp> {
+  @override
+  void initState() {
+    super.initState();
+    ref.listenManual(currentUserProvider, (previous, next) {
+      NotificationService.instance.syncForUser(next.valueOrNull);
+    }, fireImmediately: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(routerProvider);
+    NotificationService.instance.setNavigationHandler((location) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => router.go(location));
+    });
 
     return MaterialApp.router(
       title: 'AURA',
@@ -59,10 +70,7 @@ class AuraApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      supportedLocales: const [
-        Locale('en'),
-        Locale('tr'),
-      ],
+      supportedLocales: const [Locale('en'), Locale('tr')],
     );
   }
 }

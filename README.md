@@ -1,8 +1,9 @@
 # AURA
 
-AURA is a Flutter life-coaching application that combines wellness tracking,
-AI-assisted guidance, meal analysis, RPG-style progression, and social
-accountability.
+AURA is an iOS-only Flutter life-coaching application that combines wellness
+tracking, AI-assisted guidance, meal analysis, RPG-style progression, and
+social accountability. Its Firebase integration is designed to run on the
+Spark plan with Authentication and Cloud Firestore.
 
 ## Submission Information
 
@@ -21,36 +22,38 @@ accountability.
 - Email/password registration, login, Google Sign-In, and protected routes
 - Personal profile, editable goals, private body data, and public/friend views
 - Daily dashboard for steps, water, sleep, meals, streaks, and daily score
-- Daily and weekly quests with claimable XP, stats, levels, classes, and
-  achievements
+- Daily and weekly quests with XP, stats, levels, classes, and achievements
 - Gemini-powered personal coach with chat history and remembered user context
-- Gemini Vision meal scanning with calorie/macronutrient estimates, advice,
-  image storage, and scan history
-- Friends, requests, public profiles, activity feed, likes, community
-  challenges, friend rankings, and an opt-in weekly league
-- HealthKit sleep/step synchronization on iOS and live pedometer step tracking
-- Firebase Authentication, Firestore, Storage, Cloud Functions, security rules,
-  and offline Firestore persistence
+- Gemini Vision meal scanning with calorie/macronutrient estimates and advice
+- Friends, requests, public profiles, activity feed, per-user likes, community
+  challenges, rankings, unread counters, and an opt-in weekly league
+- HealthKit sleep/step synchronization and device-scheduled local reminders
+- Firebase Authentication, Cloud Firestore, security rules, indexes, and
+  offline Firestore persistence
 
-## Quick Start
+Meal photographs are used in memory only while Gemini analyzes them. Saved meal
+history contains the food name, date, calories, macros, and AI advice, but no
+photograph.
 
-The most reliable demonstration target is a physical iOS or Android device.
-Some health, camera, and notification features are limited on desktop or web.
+Social milestone events and challenge contributions are written by the Flutter
+client under restrictive Firestore rules. Community challenge definitions
+remain admin-managed in Firestore.
 
-1. Install Flutter `3.41.5` stable and confirm the installation:
+## iOS Quick Start
 
-   ```sh
-   flutter --version
-   flutter doctor
-   ```
+The supported demonstration target is an iOS 14.0 or newer device or simulator.
+A physical iPhone is recommended for camera, motion, HealthKit, and notification
+testing.
 
-2. Open this repository folder as a project in Android Studio, VS Code, or
-   another Flutter-capable editor.
-
-3. Install Flutter dependencies:
+1. Install Flutter `3.41.5` stable, Xcode, and CocoaPods.
+2. Open the repository in a Flutter-capable editor.
+3. Install dependencies:
 
    ```sh
    flutter pub get
+   cd ios
+   pod install
+   cd ..
    ```
 
 4. Create the local Gemini configuration:
@@ -62,59 +65,47 @@ Some health, camera, and notification features are limited on desktop or web.
    Replace `YOUR_GEMINI_API_KEY_HERE` in `.env` with a Google AI Studio Gemini
    API key. Never commit the `.env` file.
 
-5. Confirm Firebase configuration:
-
-   - The repository contains the class project's iOS and web Firebase options.
-   - Android and macOS values in `lib/firebase_options.dart` are placeholders.
-   - To connect another Firebase project or run Android/macOS, install the
-     FlutterFire CLI and run `flutterfire configure`, then enable Email/Password
-     and Google authentication, Firestore, and Storage in Firebase.
-
-6. Connect a device or start an emulator, then run:
+5. Confirm that the selected Firebase project has Email/Password and Google
+   authentication enabled, plus a Cloud Firestore database.
+6. Connect an iPhone or start an iOS simulator, then run:
 
    ```sh
    flutter devices
    flutter run
    ```
 
-7. Create an account or sign in. Grant camera, motion/activity, notification,
-   and Apple Health permissions when requested.
+7. Grant camera, photo-library, motion/activity, notification, and HealthKit
+   permissions when requested.
 
-For a step-by-step guide intended for a first-time evaluator, use
-`README.txt`.
+For a step-by-step evaluator guide, use `README.txt`.
 
 ## Verification
 
-Run the following commands from the repository root:
+Run from the repository root:
 
 ```sh
 flutter analyze
 flutter test
+npm run test:rules
 ```
 
 Verified on June 4, 2026:
 
 - `flutter analyze`: no issues found
-- `flutter test`: all 103 tests passed
+- `flutter test`: all 121 tests passed
+- `npm run test:rules`: all 9 Firestore rule tests passed
 
 ## Optional Firebase Deployment
 
-Deploy Firestore rules:
+The app has no separately deployed application backend. Deploy only the
+Firestore rules and indexes:
 
 ```sh
-firebase deploy --only firestore:rules
+firebase deploy --only firestore:rules,firestore:indexes
 ```
 
-Install and deploy Cloud Functions:
-
-```sh
-cd functions
-npm install
-firebase deploy --only functions
-```
-
-The Cloud Functions project targets Node.js 18. Deployment requires access to
-the intended Firebase project.
+Water and daily-goal reminders are scheduled locally by the iOS app. Social
+updates use real-time Firestore streams and in-app counters.
 
 ## Source Layout
 
@@ -123,18 +114,31 @@ the intended Firebase project.
 | `lib/main.dart` | App startup, Firebase, environment, notifications, and localization |
 | `lib/core/` | Router, theme, date utilities, haptics, and Gemini configuration |
 | `lib/features/` | Auth, home, chat, scan, character, social, and profile features |
-| `lib/services/` | Firebase, health, notifications, storage, social, memory, and auth services |
+| `lib/services/` | Firestore, health, notifications, social, memory, and auth services |
 | `lib/shared/` | Shared models and reusable widgets |
 | `lib/l10n/` | English and Turkish localization resources |
-| `functions/` | Firebase Cloud Functions |
 | `firestore.rules` | Firestore access-control rules |
-| `test/` | Unit, service, and widget tests |
+| `firestore.indexes.json` | Required Firestore composite indexes |
+| `test/` | Flutter unit, service, and widget tests |
+| `test-rules/` | Firestore emulator rule tests |
 | `samplereport.tex` | Final project report source |
 
-## External Services and Configuration
+## Data and Security Notes
 
-- Firebase Authentication, Cloud Firestore, Firebase Storage, Firebase
-  Messaging, and Cloud Functions
+- Existing meal documents with a legacy `imageUrl` field remain readable; the
+  field is ignored and no migration is required.
+- Existing challenge definitions with a legacy `currentAmount` field remain
+  readable; displayed totals are derived from contribution documents.
+- Milestone activity IDs are deterministic, and activity documents are
+  immutable after creation.
+- Friend-only activity access follows the current accepted friendship. Removing
+  a friend removes access to earlier friend-only events.
+- Likes live below the current user's document. Challenge contributions belong
+  to their author, cannot decrease, and cannot exceed the matching daily log.
+
+## External Services
+
+- Firebase Authentication and Cloud Firestore
 - Google Sign-In
 - Google Gemini through `google_generative_ai`
 - Apple HealthKit, device motion/activity data, camera, and photo library
@@ -145,15 +149,10 @@ advice.
 
 ## Known Limitations
 
-- A valid Gemini API key and an accessible Firebase project are required for
-  the complete experience.
-- Android and macOS Firebase options must be generated before those platforms
-  can use Firebase.
-- The client initializes local notifications and the backend contains a
-  scheduled Firebase Messaging function, but automatic client FCM-token
-  registration is not currently wired end to end.
-- The social challenge/activity collections use demo seed data and should be
-  hardened before production use.
+- A valid Gemini API key and accessible Firebase project are required for the
+  complete experience.
+- Remote push delivery is intentionally disabled; reminders are local to iOS.
+- Community challenge definitions are managed manually in Firestore.
 - English and Turkish localization resources exist, but several screens still
   contain hard-coded Turkish text.
 - Meal analysis is an AI estimate; users should verify nutritional information.

@@ -60,6 +60,64 @@ void main() {
       expect(data['xp'], 500);
     });
 
+    test('ensureUserDoc backfills legacy social fields', () async {
+      final service = FirestoreService(firestore: fakeFirestore);
+      final userRef = fakeFirestore.collection('users').doc('uid1');
+      await userRef.set({
+        'displayName': 'Legacy User',
+        'email': 'legacy@test.com',
+        'currentLevel': 2,
+        'createdAt': Timestamp.fromDate(DateTime(2024, 1, 1)),
+        'lastActiveDate': Timestamp.fromDate(DateTime(2024, 1, 1)),
+      });
+
+      await service.ensureUserDoc(
+        uid: 'uid1',
+        displayName: 'Legacy User',
+        email: 'legacy@test.com',
+      );
+
+      final data = (await userRef.get()).data()!;
+      expect(data['avatarUrl'], '');
+      expect(data['currentClass'], UserModel.classForLevel(2));
+      expect(data['xp'], 0);
+      expect(data['xpToNextLevel'], UserModel.xpForLevel(2));
+      expect(data['shareMilestones'], isTrue);
+    });
+
+    test('syncMilestoneActivities repairs missing level activity', () async {
+      final service = FirestoreService(firestore: fakeFirestore);
+      final userRef = fakeFirestore.collection('users').doc('uid1');
+      await userRef.set({
+        'displayName': 'Legacy User',
+        'email': 'legacy@test.com',
+        'currentLevel': 2,
+        'xp': 25,
+        'xpToNextLevel': 1200,
+        'shareMilestones': true,
+        'createdAt': Timestamp.fromDate(DateTime(2024, 1, 1)),
+        'lastActiveDate': Timestamp.fromDate(DateTime(2024, 1, 1)),
+      });
+
+      await service.syncMilestoneActivities('uid1');
+
+      final userData = (await userRef.get()).data()!;
+      expect(userData['avatarUrl'], '');
+      expect(userData['currentClass'], UserModel.classForLevel(2));
+
+      final activity = await fakeFirestore
+          .collection('social_activities')
+          .doc('level_uid1_2')
+          .get();
+      expect(activity.exists, isTrue);
+      expect(activity.data()?['actorUid'], 'uid1');
+      expect(activity.data()?['metadata']['level'], 2);
+      expect(
+        activity.data()?['metadata']['className'],
+        UserModel.classForLevel(2),
+      );
+    });
+
     test(
       'update profile settings writes private and public profile data',
       () async {
@@ -92,6 +150,11 @@ void main() {
           ),
           socialEnergyLevel: 'Yüksek',
           leaderboardOptIn: true,
+          shareMilestones: false,
+          notificationPreferences: const NotificationPreferences(
+            waterReminders: true,
+            dailyGoalReminder: true,
+          ),
         );
 
         final privateData = (await userRef.get()).data()!;
@@ -102,6 +165,15 @@ void main() {
         expect(privateData['dailyGoals']['calories'], 2100);
         expect(privateData['socialEnergyLevel'], 'Yüksek');
         expect(privateData['leaderboardOptIn'], isTrue);
+        expect(privateData['shareMilestones'], isFalse);
+        expect(
+          privateData['notificationPreferences']['waterReminders'],
+          isTrue,
+        );
+        expect(
+          privateData['notificationPreferences']['dailyGoalReminder'],
+          isTrue,
+        );
 
         final publicData =
             (await fakeFirestore.collection('publicProfiles').doc('uid1').get())
@@ -120,6 +192,17 @@ void main() {
         expect(leaderboardDoc.data()?['displayName'], 'New Name');
       },
     );
+
+    test('mark social feed read stores a server timestamp', () async {
+      final service = FirestoreService(firestore: fakeFirestore);
+      final userRef = fakeFirestore.collection('users').doc('uid1');
+      await userRef.set({'displayName': 'Reader'});
+
+      await service.markSocialFeedRead('uid1');
+
+      final data = (await userRef.get()).data()!;
+      expect(data['lastSocialFeedReadAt'], isA<Timestamp>());
+    });
 
     test('user stream emits updates', () async {
       final userRef = fakeFirestore.collection('users').doc('uid1');
@@ -239,6 +322,36 @@ void main() {
         totalCalories += meal.calories;
       }
       expect(totalCalories, 350);
+    });
+  });
+
+  group('Challenge contributions', () {
+    test('daily progress only raises the current user contribution', () async {
+      final service = FirestoreService(firestore: fakeFirestore);
+      final today = AppDateUtils.todayKey();
+      await fakeFirestore
+          .collection('users')
+          .doc('uid1')
+          .collection('dailyLogs')
+          .doc(today)
+          .set({'stepCount': 100, 'waterGlasses': 0});
+      await fakeFirestore.collection('social_challenges').doc('steps').set({
+        'title': 'Steps',
+        'type': 'steps',
+        'participants': ['uid1'],
+      });
+
+      await service.updateDailyLog('uid1', today, {'stepCount': 500});
+      await service.updateDailyLog('uid1', today, {'stepCount': 300});
+
+      final contribution = await fakeFirestore
+          .collection('social_challenges')
+          .doc('steps')
+          .collection('progressContributions')
+          .doc('uid1_$today')
+          .get();
+      expect(contribution.data()?['creditedAmount'], 500);
+      expect(contribution.data()?['userId'], 'uid1');
     });
   });
 

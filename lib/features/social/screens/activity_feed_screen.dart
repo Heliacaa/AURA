@@ -12,7 +12,6 @@ class ActivityFeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activitiesAsyncValue = ref.watch(activitiesProvider);
-    final currentUserId = ref.watch(currentUserIdProvider);
 
     // timeago türkçe vb ayarlanabilir. Basitçe:
     timeago.setLocaleMessages('tr', timeago.TrMessages());
@@ -21,9 +20,13 @@ class ActivityFeedScreen extends ConsumerWidget {
       data: (activities) {
         if (activities.isEmpty) {
           return const Center(
-            child: Text(
-              "Henüz bir aktivite yok.",
-              style: TextStyle(color: AppTheme.textSecondary),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                'Henüz bir aktivite yok.\n3 günlük seri, seviye atlama veya yeni başarı açınca burada görünür.',
+                style: TextStyle(color: AppTheme.textSecondary),
+                textAlign: TextAlign.center,
+              ),
             ),
           );
         }
@@ -33,23 +36,23 @@ class ActivityFeedScreen extends ConsumerWidget {
           itemCount: activities.length,
           itemBuilder: (context, index) {
             final activity = activities[index];
-            final isLikedByMe =
-                currentUserId != null && activity.likes.contains(currentUserId);
 
             return ActivityFeedCard(
-              userName: activity.userName,
-              userAvatarUrl: activity.userAvatarUrl,
-              actionTitle: activity.actionTitle,
-              actionDescription: activity.actionDescription,
-              timeAgo: timeago.format(activity.timestamp, locale: 'tr'),
+              userName: activity.actorDisplayName,
+              userAvatarUrl: activity.actorAvatarUrl,
+              actionTitle: activity.title,
+              actionDescription: activity.description,
+              timeAgo: timeago.format(activity.createdAt, locale: 'tr'),
               isSpecialAchievement: activity.isSpecialAchievement,
-              isLikedByMe: isLikedByMe,
-              onLikePressed: () {
-                ref.read(socialServiceProvider).toggleLikeActivity(activity.id);
+              isLikedByMe: activity.isLikedByCurrentUser,
+              onLikePressed: () async {
+                await ref
+                    .read(socialServiceProvider)
+                    .toggleLikeActivity(activity.id);
               },
-              onUserTap: activity.userId.isEmpty
+              onUserTap: activity.actorUid.isEmpty
                   ? null
-                  : () => context.push('/public-profile/${activity.userId}'),
+                  : () => context.push('/public-profile/${activity.actorUid}'),
             );
           },
         );

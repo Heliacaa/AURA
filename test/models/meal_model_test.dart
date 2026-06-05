@@ -40,7 +40,6 @@ void main() {
         carbs: 25.0,
         fat: 5.0,
         aiAdvice: 'Healthy choice!',
-        imageUrl: 'https://example.com/img.jpg',
       );
 
       final map = meal.toFirestore();
@@ -50,10 +49,10 @@ void main() {
       expect(map['carbs'], 25.0);
       expect(map['fat'], 5.0);
       expect(map['aiAdvice'], 'Healthy choice!');
-      expect(map['imageUrl'], 'https://example.com/img.jpg');
+      expect(map.containsKey('imageUrl'), isFalse);
     });
 
-    test('copyWith updates imageUrl and timestamp', () {
+    test('copyWith updates timestamp', () {
       final meal = MealModel(
         timestamp: DateTime(2024, 6, 15),
         detectedFood: 'Rice',
@@ -64,8 +63,7 @@ void main() {
       );
 
       final savedAt = DateTime(2024, 6, 16, 10, 30);
-      final updated = meal.copyWith(imageUrl: 'new_url', timestamp: savedAt);
-      expect(updated.imageUrl, 'new_url');
+      final updated = meal.copyWith(timestamp: savedAt);
       expect(updated.timestamp, savedAt);
       expect(updated.detectedFood, 'Rice');
       expect(updated.calories, 300);

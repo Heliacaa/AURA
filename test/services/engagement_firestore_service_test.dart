@@ -23,6 +23,11 @@ void main() {
     bool leaderboardOptIn = false,
     int weeklyXp = 0,
     String weeklyXpWeek = '',
+    int xp = 0,
+    int currentLevel = 1,
+    int streakDays = 0,
+    DateTime? lastActiveDate,
+    bool shareMilestones = true,
   }) async {
     await fakeFirestore
         .collection('users')
@@ -33,10 +38,14 @@ void main() {
             displayName: 'Test User',
             email: 'test@test.com',
             createdAt: DateTime(2024, 1, 1),
-            lastActiveDate: DateTime(2024, 1, 1),
+            lastActiveDate: lastActiveDate ?? DateTime(2024, 1, 1),
+            xp: xp,
+            currentLevel: currentLevel,
+            streakDays: streakDays,
             leaderboardOptIn: leaderboardOptIn,
             weeklyXp: weeklyXp,
             weeklyXpWeek: weeklyXpWeek,
+            shareMilestones: shareMilestones,
           ).toFirestore(),
         );
   }
@@ -205,6 +214,16 @@ void main() {
       expect(first, isTrue);
       expect(second, isFalse);
       expect(achievements.docs.length, 1);
+
+      final activity = await fakeFirestore
+          .collection('social_activities')
+          .doc('achievement_uid1_${AchievementCatalog.firstQuest.id}')
+          .get();
+      expect(activity.exists, isTrue);
+      expect(
+        activity.data()?['metadata']['achievementId'],
+        AchievementCatalog.firstQuest.id,
+      );
     });
 
     test('updateUserXP increments current weekly XP', () async {
@@ -222,6 +241,50 @@ void main() {
       expect(data['xp'], 40);
       expect(data['weeklyXp'], 40);
       expect(data['weeklyXpWeek'], AppDateUtils.weekKey());
+    });
+
+    test('level-up creates one deterministic social activity', () async {
+      await seedUser(xp: 490);
+      await seedTodayLog(DailyLogModel.empty(AppDateUtils.todayKey()));
+
+      expect(await service.updateUserXP(uid: uid, xpDelta: 20), isTrue);
+
+      final activity = await fakeFirestore
+          .collection('social_activities')
+          .doc('level_uid1_2')
+          .get();
+      expect(activity.exists, isTrue);
+      expect(activity.data()?['actorUid'], uid);
+      expect(activity.data()?['metadata']['level'], 2);
+      expect(activity.data()?.containsKey('audienceUids'), isFalse);
+    });
+
+    test('shareMilestones false suppresses social activities', () async {
+      await seedUser(xp: 490, shareMilestones: false);
+      await seedTodayLog(DailyLogModel.empty(AppDateUtils.todayKey()));
+
+      await service.updateUserXP(uid: uid, xpDelta: 20);
+
+      expect(
+        (await fakeFirestore.collection('social_activities').get()).docs,
+        isEmpty,
+      );
+    });
+
+    test('streak milestone creates a deterministic social activity', () async {
+      await seedUser(
+        streakDays: 2,
+        lastActiveDate: DateTime.now().subtract(const Duration(days: 1)),
+      );
+
+      await service.updateStreak(uid);
+
+      final activity = await fakeFirestore
+          .collection('social_activities')
+          .doc('streak_uid1_3')
+          .get();
+      expect(activity.exists, isTrue);
+      expect(activity.data()?['metadata']['days'], 3);
     });
 
     test('stale weekly XP resets before adding new XP', () async {
@@ -263,6 +326,13 @@ void main() {
       expect(entries.first.containsKey('email'), isFalse);
       expect(entries.first.containsKey('dailyGoals'), isFalse);
       expect(entries.first.containsKey('streakDays'), isFalse);
+    });
+
+    test('streak milestone helper uses fixed and hundred-day milestones', () {
+      expect(FirestoreService.isStreakMilestone(3), isTrue);
+      expect(FirestoreService.isStreakMilestone(100), isTrue);
+      expect(FirestoreService.isStreakMilestone(200), isTrue);
+      expect(FirestoreService.isStreakMilestone(12), isFalse);
     });
   });
 }

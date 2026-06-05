@@ -13,7 +13,6 @@ import '../../home/providers/home_provider.dart';
 import '../providers/scan_provider.dart';
 import '../services/vision_service.dart';
 import '../../../services/firestore_service.dart';
-import '../../../services/storage_service.dart';
 
 class ScanScreen extends ConsumerStatefulWidget {
   const ScanScreen({super.key});
@@ -104,35 +103,8 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     ref.read(scanSavingProvider.notifier).state = true;
 
     try {
-      // Upload image (with fallback)
-      debugPrint('Resim yükleniyor...');
-      String imageUrl = '';
-      try {
-        imageUrl = await StorageService.instance.uploadMealImage(
-          uid: uid,
-          imageFile: image,
-        );
-        debugPrint('Resim yüklendi: $imageUrl');
-      } catch (storageErr) {
-        debugPrint('Resim yüklenemedi (Storage hatası): $storageErr');
-        // İsteğe bağlı olarak kullanıcıya küçük bir uyarı gösterebilirsiniz
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Resim Firebase\'e yüklenemedi ancak veriler kaydediliyor...',
-              ),
-            ),
-          );
-        }
-      }
-
-      // Save meal with image URL
       debugPrint('Firestore kaydı yapılıyor...');
-      final meal = result.copyWith(
-        imageUrl: imageUrl,
-        timestamp: DateTime.now(),
-      );
+      final meal = result.copyWith(timestamp: DateTime.now());
       await FirestoreService.instance
           .saveMeal(uid, meal)
           .timeout(
@@ -168,31 +140,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
     } finally {
       ref.read(scanSavingProvider.notifier).state = false;
     }
-  }
-
-  Widget _mealImage(MealModel meal, {double? height, IconData? fallbackIcon}) {
-    Widget fallback() {
-      return Container(
-        width: double.infinity,
-        height: height,
-        color: Colors.grey.withAlpha(30),
-        child: Icon(
-          fallbackIcon ?? Icons.fastfood_rounded,
-          color: Colors.grey,
-          size: height == null ? 36 : 48,
-        ),
-      );
-    }
-
-    if (meal.imageUrl.isEmpty) return fallback();
-
-    return Image.network(
-      meal.imageUrl,
-      width: double.infinity,
-      height: height,
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => fallback(),
-    );
   }
 
   void _showPastScanDetails(MealModel meal) {
@@ -266,13 +213,6 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                         tooltip: 'Kapat',
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(
-                      AppTheme.cardBorderRadius,
-                    ),
-                    child: _mealImage(meal, height: 220),
                   ),
                   const SizedBox(height: 18),
                   _ScanDetailRow(
@@ -675,7 +615,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                     children: [
                       const SizedBox(height: 8),
                       SizedBox(
-                        height: 156,
+                        height: 132,
                         child: ListView.separated(
                           scrollDirection: Axis.horizontal,
                           itemCount: meals.length,
@@ -706,17 +646,12 @@ class _ScanScreenState extends ConsumerState<ScanScreen>
                                     crossAxisAlignment:
                                         CrossAxisAlignment.stretch,
                                     children: [
-                                      Expanded(
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.vertical(
-                                            top: Radius.circular(
-                                              AppTheme.cardBorderRadius,
-                                            ),
-                                          ),
-                                          child: _mealImage(
-                                            meal,
-                                            fallbackIcon:
-                                                Icons.restaurant_rounded,
+                                      const Expanded(
+                                        child: Center(
+                                          child: Icon(
+                                            Icons.restaurant_rounded,
+                                            color: AppTheme.secondaryAccent,
+                                            size: 34,
                                           ),
                                         ),
                                       ),

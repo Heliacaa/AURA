@@ -4,13 +4,13 @@ import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aura/core/utils/date_utils.dart';
-import 'package:aura/services/friend_functions_service.dart';
+import 'package:aura/services/friend_service.dart';
 
 void main() {
-  group('FriendFunctionsService', () {
+  group('FriendService', () {
     late FakeFirebaseFirestore firestore;
     late MockFirebaseAuth auth;
-    late FriendFunctionsService service;
+    late FriendService service;
 
     setUp(() async {
       firestore = FakeFirebaseFirestore();
@@ -22,7 +22,7 @@ void main() {
         ),
         signedIn: true,
       );
-      service = FriendFunctionsService(firestore: firestore, auth: auth);
+      service = FriendService(firestore: firestore, auth: auth);
 
       await firestore.collection('publicProfiles').doc('uid1').set({
         'uid': 'uid1',
@@ -131,5 +131,62 @@ void main() {
         ),
       );
     });
+
+    test(
+      'sendFriendRequest detects an existing directional friendship',
+      () async {
+        await firestore.collection('publicProfiles').doc('uid0').set({
+          'uid': 'uid0',
+          'displayName': 'Zero',
+          'email': 'zero@test.com',
+          'avatarUrl': '',
+          'currentLevel': 1,
+          'currentClass': 'Novice',
+          'xp': 0,
+          'streakDays': 0,
+          'weeklyXp': 0,
+          'weeklyXpWeek': '',
+        });
+        await firestore.collection('friendships').doc('uid1_uid0').set({
+          'participantUids': ['uid1', 'uid0'],
+          'requesterUid': 'uid1',
+          'recipientUid': 'uid0',
+          'status': 'accepted',
+        });
+
+        expect(
+          () => service.sendFriendRequest('uid0'),
+          throwsA(
+            isA<FirebaseException>().having(
+              (error) => error.code,
+              'code',
+              'already-exists',
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'removeFriend deletes directional friendship and is idempotent',
+      () async {
+        await firestore.collection('friendships').doc('uid1_uid0').set({
+          'participantUids': ['uid1', 'uid0'],
+          'requesterUid': 'uid1',
+          'recipientUid': 'uid0',
+          'status': 'accepted',
+        });
+
+        await service.removeFriend('uid0');
+
+        expect(
+          (await firestore.collection('friendships').doc('uid1_uid0').get())
+              .exists,
+          isFalse,
+        );
+
+        await service.removeFriend('uid0');
+      },
+    );
   });
 }

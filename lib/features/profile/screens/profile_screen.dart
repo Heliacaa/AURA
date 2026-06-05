@@ -126,6 +126,28 @@ class ProfileScreen extends ConsumerWidget {
                       _InfoRow(label: 'Haftalık XP', value: '${user.weeklyXp}'),
                     ],
                   ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
+                    title: 'Sosyal ve Bildirimler',
+                    children: [
+                      _InfoRow(
+                        label: 'Başarı paylaşımı',
+                        value: user.shareMilestones ? 'Açık' : 'Kapalı',
+                      ),
+                      _InfoRow(
+                        label: 'Su hatırlatmaları',
+                        value: user.notificationPreferences.waterReminders
+                            ? 'Açık'
+                            : 'Kapalı',
+                      ),
+                      _InfoRow(
+                        label: 'Günlük hedef hatırlatması',
+                        value: user.notificationPreferences.dailyGoalReminder
+                            ? 'Açık'
+                            : 'Kapalı',
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   FilledButton.icon(
                     onPressed: () => context.push('/profile/edit'),

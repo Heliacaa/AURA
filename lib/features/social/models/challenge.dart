@@ -33,11 +33,12 @@ class Challenge {
         title: data['title'] ?? '',
         description: data['description'] ?? '',
         type: data['type'] ?? 'unknown',
-        currentAmount: (data['currentAmount'] ?? 0).toInt(),
+        currentAmount: 0,
         targetAmount: (data['targetAmount'] ?? 0).toInt(),
         unit: data['unit'] ?? '',
         participants: List<String>.from(data['participants'] ?? []),
-        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        createdAt:
+            (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
         endDate: (data['endDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
       );
     } catch (e) {
@@ -51,7 +52,6 @@ class Challenge {
       'title': title,
       'description': description,
       'type': type,
-      'currentAmount': currentAmount,
       'targetAmount': targetAmount,
       'unit': unit,
       'participants': participants,
@@ -62,6 +62,23 @@ class Challenge {
 
   double get progress =>
       targetAmount > 0 ? (currentAmount / targetAmount).clamp(0.0, 1.0) : 0.0;
+
+  bool get isCompleted => targetAmount > 0 && currentAmount >= targetAmount;
+
+  Challenge copyWith({int? currentAmount}) {
+    return Challenge(
+      id: id,
+      title: title,
+      description: description,
+      type: type,
+      currentAmount: currentAmount ?? this.currentAmount,
+      targetAmount: targetAmount,
+      unit: unit,
+      participants: participants,
+      createdAt: createdAt,
+      endDate: endDate,
+    );
+  }
 
   factory Challenge.empty(String id) {
     return Challenge(

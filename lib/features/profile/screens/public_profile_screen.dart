@@ -85,7 +85,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
   }
 
   Widget _actionArea(PublicProfileModel profile) {
-    final service = ref.read(friendFunctionsServiceProvider);
+    final service = ref.read(friendServiceProvider);
 
     if (profile.isSelf) {
       return FilledButton.icon(

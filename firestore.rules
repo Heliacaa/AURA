@@ -2,6 +2,151 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAcceptedFriend(uidA, uidB) {
+      return (
+        exists(/databases/$(database)/documents/friendships/$(uidA + "_" + uidB))
+        && get(/databases/$(database)/documents/friendships/$(uidA + "_" + uidB)).data.status == 'accepted'
+      ) || (
+        exists(/databases/$(database)/documents/friendships/$(uidB + "_" + uidA))
+        && get(/databases/$(database)/documents/friendships/$(uidB + "_" + uidA)).data.status == 'accepted'
+      );
+    }
+
+    function canReadActivity(activity) {
+      return signedIn()
+        && (
+          activity.visibility == 'global'
+          || activity.actorUid == request.auth.uid
+          || isAcceptedFriend(request.auth.uid, activity.actorUid)
+        );
+    }
+
+    function isStreakMilestone(days) {
+      return days in [3, 7, 10, 30, 50, 100]
+        || (days > 100 && days % 100 == 0);
+    }
+
+    function validActivityIdentity(activityId) {
+      let activity = request.resource.data;
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return activity.keys().hasOnly([
+          'type',
+          'actorUid',
+          'actorDisplayName',
+          'actorAvatarUrl',
+          'title',
+          'description',
+          'metadata',
+          'visibility',
+          'createdAt',
+          'isSpecialAchievement'
+        ])
+        && activity.actorUid == request.auth.uid
+        && activity.actorDisplayName == user.displayName
+        && activity.actorAvatarUrl is string
+        && (
+          (
+            'avatarUrl' in user
+            && user.avatarUrl is string
+            && activity.actorAvatarUrl == user.avatarUrl
+          )
+          || (
+            'avatarUrl' in user
+            && !(user.avatarUrl is string)
+            && activity.actorAvatarUrl == ''
+          )
+          || (!('avatarUrl' in user) && activity.actorAvatarUrl == '')
+        )
+        && activity.title is string
+        && activity.description is string
+        && activity.metadata is map
+        && activity.visibility == 'friends'
+        && activity.createdAt == request.time
+        && activity.isSpecialAchievement == true
+        && (
+          !('shareMilestones' in user)
+          || user.shareMilestones == true
+        );
+    }
+
+    function validStreakActivity(activityId) {
+      let activity = request.resource.data;
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return activity.type == 'streak_milestone'
+        && activityId == 'streak_' + request.auth.uid + '_' + string(activity.metadata.days)
+        && activity.metadata.keys().hasOnly(['days'])
+        && activity.metadata.days is int
+        && activity.metadata.days == user.streakDays
+        && isStreakMilestone(activity.metadata.days);
+    }
+
+    function validLevelActivity(activityId) {
+      let activity = request.resource.data;
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return activity.type == 'level_up'
+        && activityId == 'level_' + request.auth.uid + '_' + string(activity.metadata.level)
+        && activity.metadata.keys().hasOnly(['level', 'className'])
+        && activity.metadata.level == user.currentLevel
+        && activity.metadata.className is string
+        && (
+          ('currentClass' in user && activity.metadata.className == user.currentClass)
+          || !('currentClass' in user)
+        );
+    }
+
+    function validAchievementActivity(activityId) {
+      let activity = request.resource.data;
+      let achievementPath = /databases/$(database)/documents/users/$(request.auth.uid)/achievements/$(activity.metadata.achievementId);
+      return activity.type == 'achievement_unlocked'
+        && activity.metadata.keys().hasOnly([
+          'achievementId',
+          'achievementTitle',
+          'icon'
+        ])
+        && activity.metadata.achievementId is string
+        && activityId == 'achievement_' + request.auth.uid + '_' + activity.metadata.achievementId
+        && exists(achievementPath)
+        && activity.metadata.achievementTitle == get(achievementPath).data.title
+        && activity.metadata.icon == get(achievementPath).data.icon;
+    }
+
+    function validContribution(challengeId, contributionId) {
+      let contribution = request.resource.data;
+      let challenge = get(/databases/$(database)/documents/social_challenges/$(challengeId)).data;
+      let logPath = /databases/$(database)/documents/users/$(request.auth.uid)/dailyLogs/$(contribution.logId);
+      return contribution.keys().hasOnly([
+          'challengeId',
+          'userId',
+          'logId',
+          'creditedAmount',
+          'updatedAt'
+        ])
+        && contribution.challengeId == challengeId
+        && contribution.userId == request.auth.uid
+        && contribution.logId is string
+        && contributionId == request.auth.uid + '_' + contribution.logId
+        && contribution.creditedAmount is int
+        && contribution.creditedAmount >= 0
+        && contribution.updatedAt == request.time
+        && challenge.participants is list
+        && request.auth.uid in challenge.participants
+        && exists(logPath)
+        && (
+          (
+            challenge.type == 'steps'
+            && contribution.creditedAmount <= get(logPath).data.stepCount
+          )
+          || (
+            challenge.type == 'water'
+            && contribution.creditedAmount <= get(logPath).data.waterGlasses
+          )
+        );
+    }
+
     // Users can only access their own private document
     match /users/{userId} {
       allow read, update: if request.auth != null && request.auth.uid == userId;
@@ -38,6 +183,27 @@ service cloud.firestore {
       // Memories subcollection (RAG)
       match /memories/{memoryId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Per-user social reactions avoid one read per activity card.
+      match /activityLikes/{activityId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null
+          && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly([
+            'uid',
+            'activityId',
+            'createdAt'
+          ])
+          && request.resource.data.uid == userId
+          && request.resource.data.activityId == activityId
+          && request.resource.data.createdAt == request.time
+          && exists(/databases/$(database)/documents/social_activities/$(activityId))
+          && canReadActivity(
+            get(/databases/$(database)/documents/social_activities/$(activityId)).data
+          );
+        allow delete: if request.auth != null && request.auth.uid == userId;
+        allow update: if false;
       }
     }
 
@@ -186,12 +352,58 @@ service cloud.firestore {
     // Social Collections
     match /social_challenges/{challengeId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow create, delete: if false;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'participants'
+        ])
+        && request.resource.data.participants is list
+        && request.resource.data.participants.toSet().size()
+          == request.resource.data.participants.size()
+        && (
+          (
+            !(request.auth.uid in resource.data.participants)
+            && request.auth.uid in request.resource.data.participants
+            && request.resource.data.participants.size()
+              == resource.data.participants.size() + 1
+            && request.resource.data.participants.hasAll(resource.data.participants)
+          )
+          || (
+            request.auth.uid in resource.data.participants
+            && !(request.auth.uid in request.resource.data.participants)
+            && resource.data.participants.size()
+              == request.resource.data.participants.size() + 1
+            && resource.data.participants.hasAll(request.resource.data.participants)
+          )
+        );
+
+      match /progressContributions/{contributionId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && validContribution(challengeId, contributionId);
+        allow update: if request.auth != null
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'creditedAmount',
+            'updatedAt'
+          ])
+          && request.resource.data.creditedAmount >= resource.data.creditedAmount
+          && validContribution(challengeId, contributionId);
+        allow delete: if false;
+      }
     }
 
     match /social_activities/{activityId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+      allow get: if canReadActivity(resource.data);
+      allow list: if canReadActivity(resource.data);
+      allow create: if request.auth != null
+        && validActivityIdentity(activityId)
+        && (
+          validStreakActivity(activityId)
+          || validLevelActivity(activityId)
+          || validAchievementActivity(activityId)
+        );
+      allow update, delete: if false;
     }
 
     // Deny all other access

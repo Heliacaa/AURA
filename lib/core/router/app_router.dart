@@ -90,7 +90,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: '/social',
-                builder: (context, state) => const SocialScreen(),
+                builder: (context, state) =>
+                    SocialScreen(initialTab: state.uri.queryParameters['tab']),
               ),
             ],
           ),
