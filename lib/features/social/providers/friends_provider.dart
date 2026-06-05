@@ -22,29 +22,41 @@ final friendshipsProvider = StreamProvider<List<FriendshipModel>>((ref) {
   return FirestoreService.instance.friendshipsStream(user.uid);
 });
 
-/// Stream of accepted friends
-final friendsProvider = StreamProvider<List<FriendshipModel>>((ref) {
-  final authState = ref.watch(authStateProvider).valueOrNull;
-  final items = ref.watch(friendshipsProvider).valueOrNull ?? [];
-  if (authState == null) return const Stream.empty();
-  return Stream.value(items.where((item) => item.isAccepted).toList());
+/// Accepted friends derived from the single live friendships stream.
+final friendsProvider = Provider<AsyncValue<List<FriendshipModel>>>((ref) {
+  final authUser = ref.watch(authStateProvider).valueOrNull;
+  if (authUser == null) return const AsyncValue.data([]);
+
+  return ref
+      .watch(friendshipsProvider)
+      .whenData((items) => items.where((item) => item.isAccepted).toList());
 });
 
-/// Stream of pending friend requests
-final friendRequestsProvider = StreamProvider<List<FriendshipModel>>((ref) {
+/// Pending friend requests received by the current user.
+final friendRequestsProvider = Provider<AsyncValue<List<FriendshipModel>>>((
+  ref,
+) {
   final authUser = ref.watch(authStateProvider).valueOrNull;
-  final items = ref.watch(friendshipsProvider).valueOrNull ?? [];
-  if (authUser == null) return const Stream.empty();
-  return Stream.value(
-    items.where((item) => item.isIncomingFor(authUser.uid)).toList(),
-  );
+  if (authUser == null) return const AsyncValue.data([]);
+
+  return ref
+      .watch(friendshipsProvider)
+      .whenData(
+        (items) =>
+            items.where((item) => item.isIncomingFor(authUser.uid)).toList(),
+      );
 });
 
-final sentFriendRequestsProvider = StreamProvider<List<FriendshipModel>>((ref) {
+final sentFriendRequestsProvider = Provider<AsyncValue<List<FriendshipModel>>>((
+  ref,
+) {
   final authUser = ref.watch(authStateProvider).valueOrNull;
-  final items = ref.watch(friendshipsProvider).valueOrNull ?? [];
-  if (authUser == null) return const Stream.empty();
-  return Stream.value(
-    items.where((item) => item.isOutgoingFor(authUser.uid)).toList(),
-  );
+  if (authUser == null) return const AsyncValue.data([]);
+
+  return ref
+      .watch(friendshipsProvider)
+      .whenData(
+        (items) =>
+            items.where((item) => item.isOutgoingFor(authUser.uid)).toList(),
+      );
 });

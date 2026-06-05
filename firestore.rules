@@ -30,7 +30,7 @@ service cloud.firestore {
         || (days > 100 && days % 100 == 0);
     }
 
-    function validActivityIdentity(activityId) {
+    function validActivityIdentity() {
       let activity = request.resource.data;
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return activity.keys().hasOnly([
@@ -274,7 +274,6 @@ service cloud.firestore {
     // Directed friendships can be managed by authenticated participants.
     match /friendships/{friendshipId} {
       allow read: if request.auth != null
-        && resource.data.participantUids is list
         && request.auth.uid in resource.data.participantUids;
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly([
@@ -397,7 +396,7 @@ service cloud.firestore {
       allow get: if canReadActivity(resource.data);
       allow list: if canReadActivity(resource.data);
       allow create: if request.auth != null
-        && validActivityIdentity(activityId)
+        && validActivityIdentity()
         && (
           validStreakActivity(activityId)
           || validLevelActivity(activityId)

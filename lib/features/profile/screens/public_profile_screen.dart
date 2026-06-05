@@ -43,6 +43,52 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
     }
   }
 
+  Future<void> _removeFriendWithConfirmation(PublicProfileModel profile) async {
+    final safeName = profile.displayName.isNotEmpty
+        ? profile.displayName
+        : 'AURA User';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          'Arkadaşı kaldır?',
+          style: GoogleFonts.poppins(
+            color: AppTheme.textWhite,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          '$safeName arkadaş listenden kaldırılacak. Emin misin?',
+          style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Kaldır',
+              style: GoogleFonts.poppins(color: AppTheme.statRed),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+    final service = ref.read(friendServiceProvider);
+    await _runAction(
+      () => service.removeFriend(profile.uid),
+      successMessage: 'Arkadaş kaldırıldı.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profileAsync = ref.watch(publicProfileProvider(widget.uid));
@@ -150,12 +196,7 @@ class _PublicProfileScreenState extends ConsumerState<PublicProfileScreen> {
 
     if (profile.isFriend) {
       return OutlinedButton.icon(
-        onPressed: _busy
-            ? null
-            : () => _runAction(
-                () => service.removeFriend(profile.uid),
-                successMessage: 'Arkadaş kaldırıldı.',
-              ),
+        onPressed: _busy ? null : () => _removeFriendWithConfirmation(profile),
         icon: const Icon(Icons.person_remove_rounded),
         label: const Text('Arkadaşı Kaldır'),
         style: _dangerOutlineStyle(),

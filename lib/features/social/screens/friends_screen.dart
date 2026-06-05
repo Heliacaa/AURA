@@ -115,6 +115,51 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
     }
   }
 
+  Future<void> _removeFriendWithConfirmation(
+    String uid,
+    String displayName,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.cardBackground,
+        title: Text(
+          'Arkadaşı kaldır?',
+          style: GoogleFonts.poppins(
+            color: AppTheme.textWhite,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Text(
+          '$displayName arkadaş listenden kaldırılacak. Emin misin?',
+          style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'İptal',
+              style: GoogleFonts.poppins(color: AppTheme.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Kaldır',
+              style: GoogleFonts.poppins(color: AppTheme.statRed),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+    await _runAction(
+      () => ref.read(friendServiceProvider).removeFriend(uid),
+      successMessage: 'Arkadaş kaldırıldı.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final friendsAsync = ref.watch(friendsProvider);
@@ -253,10 +298,7 @@ class _FriendsScreenState extends ConsumerState<FriendsScreen> {
               currentUid: currentUid,
               acting: _acting,
               onOpenProfile: (uid) => context.push('/public-profile/$uid'),
-              onRemove: (uid) => _runAction(
-                () => ref.read(friendServiceProvider).removeFriend(uid),
-                successMessage: 'Arkadaş kaldırıldı.',
-              ),
+              onRemove: _removeFriendWithConfirmation,
             ),
           ],
         ),
@@ -481,7 +523,7 @@ class _FriendsListSection extends StatelessWidget {
   final String currentUid;
   final bool acting;
   final ValueChanged<String> onOpenProfile;
-  final ValueChanged<String> onRemove;
+  final void Function(String uid, String displayName) onRemove;
 
   const _FriendsListSection({
     required this.asyncValue,
@@ -510,6 +552,10 @@ class _FriendsListSection extends StatelessWidget {
           return Column(
             children: friends.map((friendship) {
               final uid = friendship.otherUid(currentUid);
+              final friend = friendship.otherUser(currentUid);
+              final displayName = friend.displayName.isNotEmpty
+                  ? friend.displayName
+                  : 'AURA User';
               return _FriendshipTile(
                 friendship: friendship,
                 currentUid: currentUid,
@@ -527,7 +573,9 @@ class _FriendsListSection extends StatelessWidget {
                     ),
                     IconButton(
                       tooltip: 'Kaldır',
-                      onPressed: acting ? null : () => onRemove(uid),
+                      onPressed: acting
+                          ? null
+                          : () => onRemove(uid, displayName),
                       icon: const Icon(
                         Icons.person_remove_rounded,
                         color: AppTheme.statRed,

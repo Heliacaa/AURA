@@ -229,6 +229,23 @@ test("friend feed queries are authorized by actor relationship", async () => {
   await assertFails(getDocs(strangerFeed));
 });
 
+test("friendship participant queries are limited to the signed-in user", async () => {
+  await seedFriendship("u1", "u2");
+  await seedFriendship("u3", "u4");
+  const user = testEnv.authenticatedContext("u1").firestore();
+  const ownFriendships = query(
+    collection(user, "friendships"),
+    where("participantUids", "array-contains", "u1")
+  );
+  const otherFriendships = query(
+    collection(user, "friendships"),
+    where("participantUids", "array-contains", "u3")
+  );
+
+  await assertSucceeds(getDocs(ownFriendships));
+  await assertFails(getDocs(otherFriendships));
+});
+
 test("global activities are readable but remain admin-created", async () => {
   await seedActivity("global", "", "global");
   const user = testEnv.authenticatedContext("u3").firestore();
