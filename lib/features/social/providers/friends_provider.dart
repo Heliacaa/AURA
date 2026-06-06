@@ -9,11 +9,12 @@ final friendServiceProvider = Provider<FriendService>((ref) {
   return FriendService();
 });
 
-final publicProfileProvider = FutureProvider.family<PublicProfileModel, String>(
-  (ref, uid) async {
-    return ref.read(friendServiceProvider).getPublicProfile(uid);
-  },
-);
+final publicProfileProvider = FutureProvider.autoDispose
+    .family<PublicProfileModel, String>((ref, uid) async {
+      ref.watch(friendshipsProvider);
+
+      return ref.read(friendServiceProvider).getPublicProfile(uid);
+    });
 
 final friendshipsProvider = StreamProvider<List<FriendshipModel>>((ref) {
   final authState = ref.watch(authStateProvider);
