@@ -263,14 +263,26 @@ test("global activities are readable but remain admin-created", async () => {
   );
 });
 
-test("social activities are immutable after creation", async () => {
-  await seedUser("u1");
+test("activity owners can sync profile fields and delete their own activity", async () => {
+  await seedUser("u1", { displayName: "New User", avatarUrl: "new-avatar" });
   await seedActivity("activity-u1", "u1");
   const user = testEnv.authenticatedContext("u1").firestore();
+  const stranger = testEnv.authenticatedContext("u2").firestore();
   const activity = doc(user, "social_activities", "activity-u1");
+  const strangerActivity = doc(stranger, "social_activities", "activity-u1");
+
+  await assertSucceeds(
+    updateDoc(activity, {
+      actorDisplayName: "New User",
+      actorAvatarUrl: "new-avatar",
+      description: "New User, 3 günlük seriye ulaştı.",
+    })
+  );
 
   await assertFails(updateDoc(activity, { title: "Changed" }));
-  await assertFails(deleteDoc(activity));
+  await assertFails(updateDoc(activity, { metadata: { days: 7 } }));
+  await assertFails(deleteDoc(strangerActivity));
+  await assertSucceeds(deleteDoc(activity));
 });
 
 test("activity likes live under and belong to the current user", async () => {

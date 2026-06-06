@@ -134,23 +134,11 @@ class ProfileScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 12),
                   _SectionCard(
-                    title: 'Sosyal ve Bildirimler',
+                    title: 'Sosyal',
                     children: [
                       _InfoRow(
                         label: 'Başarı paylaşımı',
                         value: user.shareMilestones ? 'Açık' : 'Kapalı',
-                      ),
-                      _InfoRow(
-                        label: 'Su hatırlatmaları',
-                        value: user.notificationPreferences.waterReminders
-                            ? 'Açık'
-                            : 'Kapalı',
-                      ),
-                      _InfoRow(
-                        label: 'Günlük hedef hatırlatması',
-                        value: user.notificationPreferences.dailyGoalReminder
-                            ? 'Açık'
-                            : 'Kapalı',
                       ),
                     ],
                   ),

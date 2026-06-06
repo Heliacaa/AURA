@@ -297,6 +297,8 @@ class SocialService {
     if (!doc.exists) return const [];
 
     final data = doc.data() ?? const <String, dynamic>{};
+    if (data['shareMilestones'] == false) return const [];
+
     final actorUid = data['uid'] as String? ?? doc.id;
     if (actorUid.isEmpty) return const [];
 

@@ -182,6 +182,21 @@ void main() {
           'createdAt': Timestamp.fromDate(DateTime(2024, 1, 1)),
           'lastActiveDate': Timestamp.fromDate(DateTime(2024, 1, 1)),
         });
+        await fakeFirestore
+            .collection('social_activities')
+            .doc('level_uid1_2')
+            .set({
+              'type': 'level_up',
+              'actorUid': 'uid1',
+              'actorDisplayName': 'Old Name',
+              'actorAvatarUrl': '',
+              'title': 'Seviye 2!',
+              'description': 'Old Name, 2. seviyeye yükseldi.',
+              'metadata': {'level': 2, 'className': 'Novice'},
+              'visibility': 'friends',
+              'createdAt': Timestamp.fromDate(DateTime(2024, 2, 1)),
+              'isSpecialAchievement': true,
+            });
 
         await service.updateProfileSettings(
           uid: 'uid1',
@@ -197,10 +212,6 @@ void main() {
           socialEnergyLevel: 'Yüksek',
           leaderboardOptIn: true,
           shareMilestones: false,
-          notificationPreferences: const NotificationPreferences(
-            waterReminders: true,
-            dailyGoalReminder: true,
-          ),
         );
 
         final privateData = (await userRef.get()).data()!;
@@ -212,21 +223,20 @@ void main() {
         expect(privateData['socialEnergyLevel'], 'Yüksek');
         expect(privateData['leaderboardOptIn'], isTrue);
         expect(privateData['shareMilestones'], isFalse);
-        expect(
-          privateData['notificationPreferences']['waterReminders'],
-          isTrue,
-        );
-        expect(
-          privateData['notificationPreferences']['dailyGoalReminder'],
-          isTrue,
-        );
 
         final publicData =
             (await fakeFirestore.collection('publicProfiles').doc('uid1').get())
                 .data()!;
         expect(publicData['displayName'], 'New Name');
+        expect(publicData['shareMilestones'], isFalse);
         expect(publicData.containsKey('heightCm'), isFalse);
         expect(publicData.containsKey('weightKg'), isFalse);
+
+        final activity = await fakeFirestore
+            .collection('social_activities')
+            .doc('level_uid1_2')
+            .get();
+        expect(activity.exists, isFalse);
 
         final leaderboardDoc = await fakeFirestore
             .collection('leaderboards')
@@ -236,6 +246,94 @@ void main() {
             .get();
         expect(leaderboardDoc.exists, isTrue);
         expect(leaderboardDoc.data()?['displayName'], 'New Name');
+      },
+    );
+
+    test(
+      'update profile settings refreshes existing shared activity actor fields',
+      () async {
+        final service = FirestoreService(firestore: fakeFirestore);
+        final userRef = fakeFirestore.collection('users').doc('uid1');
+        await userRef.set({
+          'displayName': 'Old Name',
+          'email': 'test@test.com',
+          'avatarUrl': '',
+          'xp': 200,
+          'currentLevel': 2,
+          'currentClass': 'Novice',
+          'leaderboardOptIn': false,
+          'shareMilestones': true,
+          'createdAt': Timestamp.fromDate(DateTime(2024, 1, 1)),
+          'lastActiveDate': Timestamp.fromDate(DateTime(2024, 1, 1)),
+        });
+        await fakeFirestore
+            .collection('social_activities')
+            .doc('level_uid1_2')
+            .set({
+              'type': 'level_up',
+              'actorUid': 'uid1',
+              'actorDisplayName': 'Old Name',
+              'actorAvatarUrl': '',
+              'title': 'Seviye 2!',
+              'description': 'Old Name, 2. seviyeye yükseldi.',
+              'metadata': {'level': 2, 'className': 'Novice'},
+              'visibility': 'friends',
+              'createdAt': Timestamp.fromDate(DateTime(2024, 2, 1)),
+              'isSpecialAchievement': true,
+            });
+        await fakeFirestore
+            .collection('social_activities')
+            .doc('achievement_uid1_first_quest')
+            .set({
+              'type': 'achievement_unlocked',
+              'actorUid': 'uid1',
+              'actorDisplayName': 'Old Name',
+              'actorAvatarUrl': '',
+              'title': '🎯 İlk Görev',
+              'description': 'Old Name, "İlk Görev" başarısını açtı.',
+              'metadata': {
+                'achievementId': 'first_quest',
+                'achievementTitle': 'İlk Görev',
+                'icon': '🎯',
+              },
+              'visibility': 'friends',
+              'createdAt': Timestamp.fromDate(DateTime(2024, 2, 2)),
+              'isSpecialAchievement': true,
+            });
+
+        await service.updateProfileSettings(
+          uid: 'uid1',
+          displayName: 'New Name',
+          age: null,
+          heightCm: null,
+          weightKg: null,
+          dailyGoals: const DailyGoals(),
+          socialEnergyLevel: 'Orta',
+          leaderboardOptIn: false,
+          shareMilestones: true,
+        );
+
+        final levelActivity =
+            (await fakeFirestore
+                    .collection('social_activities')
+                    .doc('level_uid1_2')
+                    .get())
+                .data()!;
+        expect(levelActivity['actorDisplayName'], 'New Name');
+        expect(levelActivity['description'], 'New Name, 2. seviyeye yükseldi.');
+        expect(levelActivity['title'], 'Seviye 2!');
+
+        final achievementActivity =
+            (await fakeFirestore
+                    .collection('social_activities')
+                    .doc('achievement_uid1_first_quest')
+                    .get())
+                .data()!;
+        expect(achievementActivity['actorDisplayName'], 'New Name');
+        expect(
+          achievementActivity['description'],
+          'New Name, "İlk Görev" başarısını açtı.',
+        );
       },
     );
 

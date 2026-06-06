@@ -132,16 +132,6 @@ class FirestoreService {
     if (!data.containsKey('shareMilestones')) {
       updates['shareMilestones'] = true;
     }
-    final storedNotificationPreferences = data['notificationPreferences'];
-    if (storedNotificationPreferences is! Map ||
-        !storedNotificationPreferences.containsKey('waterReminders') ||
-        !storedNotificationPreferences.containsKey('dailyGoalReminder')) {
-      updates['notificationPreferences'] = storedNotificationPreferences is Map
-          ? NotificationPreferences.fromMap(
-              Map<String, dynamic>.from(storedNotificationPreferences),
-            ).toMap()
-          : const NotificationPreferences().toMap();
-    }
     if (updates.isNotEmpty) {
       await _userDoc(uid).update(updates);
     }
@@ -180,7 +170,6 @@ class FirestoreService {
     required String socialEnergyLevel,
     required bool leaderboardOptIn,
     required bool shareMilestones,
-    required NotificationPreferences notificationPreferences,
   }) async {
     await _userDoc(uid).update({
       'displayName': displayName,
@@ -190,15 +179,16 @@ class FirestoreService {
       'dailyGoals': dailyGoals.toMap(),
       'socialEnergyLevel': socialEnergyLevel,
       'shareMilestones': shareMilestones,
-      'notificationPreferences': notificationPreferences.toMap(),
     });
+
+    await setLeaderboardOptIn(uid, leaderboardOptIn);
 
     final doc = await _userDoc(uid).get();
     if (doc.exists) {
-      await _syncProfileProjections(UserModel.fromFirestore(doc));
+      final user = UserModel.fromFirestore(doc);
+      await _syncProfileProjections(user);
+      await _syncSocialActivityProfileState(user);
     }
-
-    await setLeaderboardOptIn(uid, leaderboardOptIn);
   }
 
   /// Atomic XP and stat update using transaction
@@ -1005,6 +995,7 @@ class FirestoreService {
     'streakDays': user.streakDays,
     'weeklyXp': user.weeklyXp,
     'weeklyXpWeek': user.weeklyXpWeek,
+    'shareMilestones': user.shareMilestones,
     'updatedAt': Timestamp.fromDate(DateTime.now()),
   };
 
@@ -1078,6 +1069,123 @@ class FirestoreService {
     }
   }
 
+  Future<void> _syncSocialActivityProfileState(UserModel user) async {
+    if (!user.shareMilestones) {
+      await _deleteOwnSocialActivitiesBestEffort(user.uid);
+      return;
+    }
+
+    await _updateOwnSocialActivityActorFieldsBestEffort(user);
+  }
+
+  Future<void> _deleteOwnSocialActivitiesBestEffort(String uid) async {
+    try {
+      final snap = await _db
+          .collection('social_activities')
+          .where('actorUid', isEqualTo: uid)
+          .get();
+      await _commitActivityWrites(
+        snap.docs.map(
+          (doc) =>
+              (WriteBatch batch) => batch.delete(doc.reference),
+        ),
+      );
+    } catch (error) {
+      debugPrint('Social activities were not deleted for $uid: $error');
+    }
+  }
+
+  Future<void> _updateOwnSocialActivityActorFieldsBestEffort(
+    UserModel user,
+  ) async {
+    try {
+      final snap = await _db
+          .collection('social_activities')
+          .where('actorUid', isEqualTo: user.uid)
+          .get();
+
+      final writes = <void Function(WriteBatch)>[];
+      for (final doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>? ?? {};
+        final description = _socialActivityDescriptionForUser(user, data);
+        if (description == null) continue;
+
+        writes.add(
+          (batch) => batch.update(doc.reference, {
+            'actorDisplayName': user.displayName,
+            'actorAvatarUrl': user.avatarUrl,
+            'description': description,
+          }),
+        );
+      }
+      await _commitActivityWrites(writes);
+    } catch (error) {
+      debugPrint(
+        'Social activity profile fields were not updated for ${user.uid}: '
+        '$error',
+      );
+    }
+  }
+
+  Future<void> _commitActivityWrites(
+    Iterable<void Function(WriteBatch)> writes,
+  ) async {
+    var batch = _db.batch();
+    var count = 0;
+    for (final write in writes) {
+      write(batch);
+      count++;
+      if (count == 400) {
+        await batch.commit();
+        batch = _db.batch();
+        count = 0;
+      }
+    }
+    if (count > 0) await batch.commit();
+  }
+
+  String? _socialActivityDescriptionForUser(
+    UserModel user,
+    Map<String, dynamic> activity,
+  ) {
+    final metadata = Map<String, dynamic>.from(
+      activity['metadata'] as Map? ?? const {},
+    );
+    return switch (activity['type']) {
+      'streak_milestone' => _streakActivityDescription(
+        user.displayName,
+        (metadata['days'] as num?)?.toInt(),
+      ),
+      'level_up' => _levelActivityDescription(
+        user.displayName,
+        (metadata['level'] as num?)?.toInt(),
+      ),
+      'achievement_unlocked' => _achievementActivityDescription(
+        user.displayName,
+        metadata['achievementTitle'] as String?,
+      ),
+      _ => null,
+    };
+  }
+
+  String? _streakActivityDescription(String displayName, int? days) {
+    if (days == null) return null;
+    return '$displayName, $days günlük seriye ulaştı.';
+  }
+
+  String? _levelActivityDescription(String displayName, int? level) {
+    if (level == null) return null;
+    return '$displayName, $level. seviyeye yükseldi.';
+  }
+
+  String? _achievementActivityDescription(
+    String displayName,
+    String? achievementTitle,
+  ) {
+    if (achievementTitle == null || achievementTitle.isEmpty) return null;
+    return '$displayName, "$achievementTitle" başarısını açtı.';
+  }
+
   Future<UserModel> _ensureSocialProfileFields(UserModel user) async {
     final normalizedClass = UserModel.classForLevel(user.currentLevel);
     await _userDoc(user.uid).set({
@@ -1148,8 +1256,10 @@ class FirestoreService {
       user: user,
       type: 'streak_milestone',
       title: '🔥 ${user.streakDays} Günlük Seri!',
-      description:
-          '${user.displayName}, ${user.streakDays} günlük seriye ulaştı.',
+      description: _streakActivityDescription(
+        user.displayName,
+        user.streakDays,
+      )!,
       metadata: {'days': user.streakDays},
     );
   }
@@ -1161,8 +1271,10 @@ class FirestoreService {
       user: user,
       type: 'level_up',
       title: 'Seviye ${user.currentLevel}!',
-      description:
-          '${user.displayName}, ${user.currentLevel}. seviyeye yükseldi.',
+      description: _levelActivityDescription(
+        user.displayName,
+        user.currentLevel,
+      )!,
       metadata: {'level': user.currentLevel, 'className': className},
     );
   }
@@ -1180,8 +1292,10 @@ class FirestoreService {
         user: user,
         type: 'achievement_unlocked',
         title: '${achievement.icon} ${achievement.title}',
-        description:
-            '${user.displayName}, "${achievement.title}" başarısını açtı.',
+        description: _achievementActivityDescription(
+          user.displayName,
+          achievement.title,
+        )!,
         metadata: {
           'achievementId': achievement.id,
           'achievementTitle': achievement.title,

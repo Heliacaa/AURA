@@ -30,6 +30,23 @@ service cloud.firestore {
         || (days > 100 && days % 100 == 0);
     }
 
+    function activityAvatarMatchesUser(activity, user) {
+      return activity.actorAvatarUrl is string
+        && (
+          (
+            'avatarUrl' in user
+            && user.avatarUrl is string
+            && activity.actorAvatarUrl == user.avatarUrl
+          )
+          || (
+            'avatarUrl' in user
+            && !(user.avatarUrl is string)
+            && activity.actorAvatarUrl == ''
+          )
+          || (!('avatarUrl' in user) && activity.actorAvatarUrl == '')
+        );
+    }
+
     function validActivityIdentity() {
       let activity = request.resource.data;
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
@@ -47,20 +64,7 @@ service cloud.firestore {
         ])
         && activity.actorUid == request.auth.uid
         && activity.actorDisplayName == user.displayName
-        && activity.actorAvatarUrl is string
-        && (
-          (
-            'avatarUrl' in user
-            && user.avatarUrl is string
-            && activity.actorAvatarUrl == user.avatarUrl
-          )
-          || (
-            'avatarUrl' in user
-            && !(user.avatarUrl is string)
-            && activity.actorAvatarUrl == ''
-          )
-          || (!('avatarUrl' in user) && activity.actorAvatarUrl == '')
-        )
+        && activityAvatarMatchesUser(activity, user)
         && activity.title is string
         && activity.description is string
         && activity.metadata is map
@@ -112,6 +116,41 @@ service cloud.firestore {
         && exists(achievementPath)
         && activity.metadata.achievementTitle == get(achievementPath).data.title
         && activity.metadata.icon == get(achievementPath).data.icon;
+    }
+
+    function validUpdatedActivityDescription(activity, user) {
+      return activity.description is string
+        && (
+          (
+            activity.type == 'streak_milestone'
+            && activity.metadata.days is int
+            && activity.description == user.displayName + ', ' + string(activity.metadata.days) + ' günlük seriye ulaştı.'
+          )
+          || (
+            activity.type == 'level_up'
+            && activity.metadata.level is int
+            && activity.description == user.displayName + ', ' + string(activity.metadata.level) + '. seviyeye yükseldi.'
+          )
+          || (
+            activity.type == 'achievement_unlocked'
+            && activity.metadata.achievementTitle is string
+            && activity.description == user.displayName + ', "' + activity.metadata.achievementTitle + '" başarısını açtı.'
+          )
+        );
+    }
+
+    function validActivityProfileUpdate() {
+      let activity = request.resource.data;
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return resource.data.actorUid == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'actorDisplayName',
+          'actorAvatarUrl',
+          'description'
+        ])
+        && activity.actorDisplayName == user.displayName
+        && activityAvatarMatchesUser(activity, user)
+        && validUpdatedActivityDescription(activity, user);
     }
 
     function validContribution(challengeId, contributionId) {
@@ -224,6 +263,7 @@ service cloud.firestore {
           'streakDays',
           'weeklyXp',
           'weeklyXpWeek',
+          'shareMilestones',
           'updatedAt'
         ])
         && request.resource.data.uid == userId;
@@ -402,7 +442,10 @@ service cloud.firestore {
           || validLevelActivity(activityId)
           || validAchievementActivity(activityId)
         );
-      allow update, delete: if false;
+      allow update: if request.auth != null
+        && validActivityProfileUpdate();
+      allow delete: if request.auth != null
+        && resource.data.actorUid == request.auth.uid;
     }
 
     // Deny all other access

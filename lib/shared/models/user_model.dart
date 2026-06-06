@@ -78,38 +78,6 @@ class DailyGoals {
   }
 }
 
-class NotificationPreferences {
-  final bool waterReminders;
-  final bool dailyGoalReminder;
-
-  const NotificationPreferences({
-    this.waterReminders = false,
-    this.dailyGoalReminder = false,
-  });
-
-  factory NotificationPreferences.fromMap(Map<String, dynamic> map) {
-    return NotificationPreferences(
-      waterReminders: map['waterReminders'] as bool? ?? false,
-      dailyGoalReminder: map['dailyGoalReminder'] as bool? ?? false,
-    );
-  }
-
-  Map<String, dynamic> toMap() => {
-    'waterReminders': waterReminders,
-    'dailyGoalReminder': dailyGoalReminder,
-  };
-
-  NotificationPreferences copyWith({
-    bool? waterReminders,
-    bool? dailyGoalReminder,
-  }) {
-    return NotificationPreferences(
-      waterReminders: waterReminders ?? this.waterReminders,
-      dailyGoalReminder: dailyGoalReminder ?? this.dailyGoalReminder,
-    );
-  }
-}
-
 class UserModel {
   final String uid;
   final String displayName;
@@ -132,7 +100,6 @@ class UserModel {
   final int weeklyXp;
   final String weeklyXpWeek;
   final bool shareMilestones;
-  final NotificationPreferences notificationPreferences;
   final DateTime? lastSocialFeedReadAt;
 
   const UserModel({
@@ -157,7 +124,6 @@ class UserModel {
     this.weeklyXp = 0,
     this.weeklyXpWeek = '',
     this.shareMilestones = true,
-    this.notificationPreferences = const NotificationPreferences(),
     this.lastSocialFeedReadAt,
   });
 
@@ -190,11 +156,6 @@ class UserModel {
       weeklyXp: (data['weeklyXp'] as num?)?.toInt() ?? 0,
       weeklyXpWeek: data['weeklyXpWeek'] as String? ?? '',
       shareMilestones: data['shareMilestones'] as bool? ?? true,
-      notificationPreferences: data['notificationPreferences'] != null
-          ? NotificationPreferences.fromMap(
-              data['notificationPreferences'] as Map<String, dynamic>,
-            )
-          : const NotificationPreferences(),
       lastSocialFeedReadAt: (data['lastSocialFeedReadAt'] as Timestamp?)
           ?.toDate(),
     );
@@ -222,7 +183,6 @@ class UserModel {
     'weeklyXp': weeklyXp,
     'weeklyXpWeek': weeklyXpWeek,
     'shareMilestones': shareMilestones,
-    'notificationPreferences': notificationPreferences.toMap(),
     if (lastSocialFeedReadAt != null)
       'lastSocialFeedReadAt': Timestamp.fromDate(lastSocialFeedReadAt!),
   };
@@ -246,7 +206,6 @@ class UserModel {
     int? weeklyXp,
     String? weeklyXpWeek,
     bool? shareMilestones,
-    NotificationPreferences? notificationPreferences,
     Object? lastSocialFeedReadAt = _sentinel,
   }) {
     return UserModel(
@@ -271,8 +230,6 @@ class UserModel {
       weeklyXp: weeklyXp ?? this.weeklyXp,
       weeklyXpWeek: weeklyXpWeek ?? this.weeklyXpWeek,
       shareMilestones: shareMilestones ?? this.shareMilestones,
-      notificationPreferences:
-          notificationPreferences ?? this.notificationPreferences,
       lastSocialFeedReadAt: lastSocialFeedReadAt == _sentinel
           ? this.lastSocialFeedReadAt
           : lastSocialFeedReadAt as DateTime?,

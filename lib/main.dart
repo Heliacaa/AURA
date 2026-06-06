@@ -9,8 +9,6 @@ import 'package:aura/l10n/app_localizations.dart';
 import 'firebase_options.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
-import 'services/notification_service.dart';
-import 'features/auth/providers/auth_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,34 +28,15 @@ void main() async {
     );
   }
 
-  // Initialize notifications
-  await NotificationService.instance.initialize();
-
   runApp(const ProviderScope(child: AuraApp()));
 }
 
-class AuraApp extends ConsumerStatefulWidget {
+class AuraApp extends ConsumerWidget {
   const AuraApp({super.key});
 
   @override
-  ConsumerState<AuraApp> createState() => _AuraAppState();
-}
-
-class _AuraAppState extends ConsumerState<AuraApp> {
-  @override
-  void initState() {
-    super.initState();
-    ref.listenManual(currentUserProvider, (previous, next) {
-      NotificationService.instance.syncForUser(next.valueOrNull);
-    }, fireImmediately: true);
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    NotificationService.instance.setNavigationHandler((location) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => router.go(location));
-    });
 
     return MaterialApp.router(
       title: 'AURA',

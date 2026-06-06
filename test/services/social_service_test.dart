@@ -141,6 +141,28 @@ void main() {
     );
   });
 
+  test(
+    'feed does not synthesize milestones when friend sharing is off',
+    () async {
+      await firestore.collection('publicProfiles').doc('u2').set({
+        'uid': 'u2',
+        'displayName': 'Friend',
+        'avatarUrl': '',
+        'currentLevel': 3,
+        'currentClass': 'Novice',
+        'streakDays': 7,
+        'shareMilestones': false,
+        'updatedAt': Timestamp.fromDate(DateTime(2026, 6, 4, 14)),
+      });
+
+      final activities = await service
+          .getActivitiesStream('u1', const ['u2'])
+          .firstWhere((items) => items.isEmpty);
+
+      expect(activities, isEmpty);
+    },
+  );
+
   test('real activity wins over synthesized public profile fallback', () async {
     await seedActivity(
       'level_u2_3',

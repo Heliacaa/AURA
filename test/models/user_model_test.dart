@@ -87,24 +87,6 @@ void main() {
     });
   });
 
-  group('NotificationPreferences', () {
-    test('local reminders default to off', () {
-      const preferences = NotificationPreferences();
-      expect(preferences.waterReminders, isFalse);
-      expect(preferences.dailyGoalReminder, isFalse);
-    });
-
-    test('fromMap and toMap round-trip', () {
-      const preferences = NotificationPreferences(
-        waterReminders: true,
-        dailyGoalReminder: true,
-      );
-      final restored = NotificationPreferences.fromMap(preferences.toMap());
-      expect(restored.waterReminders, isTrue);
-      expect(restored.dailyGoalReminder, isTrue);
-    });
-  });
-
   group('UserModel', () {
     late UserModel user;
 
@@ -139,10 +121,6 @@ void main() {
         weeklyXp: 320,
         weeklyXpWeek: '2026-W18',
         shareMilestones: false,
-        notificationPreferences: const NotificationPreferences(
-          waterReminders: true,
-          dailyGoalReminder: true,
-        ),
         lastSocialFeedReadAt: DateTime(2026, 6, 4, 12),
       );
     });
@@ -231,8 +209,6 @@ void main() {
       expect(map['weeklyXp'], 320);
       expect(map['weeklyXpWeek'], '2026-W18');
       expect(map['shareMilestones'], isFalse);
-      expect(map['notificationPreferences']['waterReminders'], isTrue);
-      expect(map['notificationPreferences']['dailyGoalReminder'], isTrue);
       expect(
         (map['lastSocialFeedReadAt'] as Timestamp).toDate(),
         DateTime(2026, 6, 4, 12),
@@ -241,18 +217,16 @@ void main() {
       expect(map['dailyGoals']['steps'], 12000);
     });
 
-    test('social and notification preferences use safe defaults', () {
+    test('social preferences use safe defaults', () {
       final model = UserModel(
         uid: 'u1',
-        displayName: 'Default Preferences',
+        displayName: 'Default Social Preferences',
         email: 'defaults@test.com',
         createdAt: DateTime(2024, 1, 1),
         lastActiveDate: DateTime(2024, 1, 1),
       );
       final map = model.toFirestore();
       expect(map['shareMilestones'], isTrue);
-      expect(map['notificationPreferences']['waterReminders'], isFalse);
-      expect(map['notificationPreferences']['dailyGoalReminder'], isFalse);
     });
   });
 }

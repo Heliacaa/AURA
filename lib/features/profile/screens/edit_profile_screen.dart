@@ -5,7 +5,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/firestore_service.dart';
-import '../../../services/notification_service.dart';
 import '../../../shared/models/user_model.dart';
 import '../../auth/providers/auth_provider.dart';
 
@@ -30,8 +29,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _saving = false;
   bool _leaderboardOptIn = false;
   bool _shareMilestones = true;
-  bool _waterReminders = false;
-  bool _dailyGoalReminder = false;
   String _socialEnergyLevel = 'Orta';
 
   static const _energyLevels = ['Düşük', 'Orta', 'Yüksek'];
@@ -60,8 +57,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _waterController.text = user.dailyGoals.waterGlasses.toString();
     _leaderboardOptIn = user.leaderboardOptIn;
     _shareMilestones = user.shareMilestones;
-    _waterReminders = user.notificationPreferences.waterReminders;
-    _dailyGoalReminder = user.notificationPreferences.dailyGoalReminder;
     _socialEnergyLevel = _energyLevels.contains(user.socialEnergyLevel)
         ? user.socialEnergyLevel
         : 'Orta';
@@ -92,21 +87,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         socialEnergyLevel: _socialEnergyLevel,
         leaderboardOptIn: _leaderboardOptIn,
         shareMilestones: _shareMilestones,
-        notificationPreferences: NotificationPreferences(
-          waterReminders: _waterReminders,
-          dailyGoalReminder: _dailyGoalReminder,
-        ),
-      );
-      await NotificationService.instance.applyPreferences(
-        preferences: NotificationPreferences(
-          waterReminders: _waterReminders,
-          dailyGoalReminder: _dailyGoalReminder,
-        ),
-        dailyGoals: DailyGoals(
-          steps: int.parse(_stepsController.text.trim()),
-          calories: int.parse(_caloriesController.text.trim()),
-          waterGlasses: int.parse(_waterController.text.trim()),
-        ),
       );
 
       if (!mounted) return;
@@ -122,50 +102,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } finally {
       if (mounted) setState(() => _saving = false);
     }
-  }
-
-  Future<void> _updateReminderPreference({
-    required bool value,
-    required bool water,
-  }) async {
-    if (value) {
-      final granted = await NotificationService.instance
-          .requestLocalPermission();
-      if (!granted && mounted) {
-        await showDialog<void>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: AppTheme.cardBackground,
-            title: const Text('Bildirim izni gerekli'),
-            content: const Text(
-              'Yerel hatırlatmaları açmak için iOS Ayarları üzerinden AURA bildirimlerine izin ver.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Daha Sonra'),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  NotificationService.instance.openSystemSettings();
-                },
-                child: const Text('Ayarları Aç'),
-              ),
-            ],
-          ),
-        );
-        return;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      if (water) {
-        _waterReminders = value;
-      } else {
-        _dailyGoalReminder = value;
-      }
-    });
   }
 
   @override
@@ -319,7 +255,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         setState(() => _leaderboardOptIn = value),
                   ),
                   const SizedBox(height: 18),
-                  _sectionTitle('Sosyal ve Bildirimler'),
+                  _sectionTitle('Sosyal'),
                   SwitchListTile.adaptive(
                     value: _shareMilestones,
                     activeThumbColor: AppTheme.secondaryAccent,
@@ -340,48 +276,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                     ),
                     onChanged: (value) =>
                         setState(() => _shareMilestones = value),
-                  ),
-                  SwitchListTile.adaptive(
-                    value: _waterReminders,
-                    activeThumbColor: AppTheme.secondaryAccent,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Su hatırlatmaları',
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.textWhite,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Her gün 11:00, 15:00 ve 19:00 saatlerinde cihazında hatırlatma gösterir.',
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    onChanged: (value) =>
-                        _updateReminderPreference(value: value, water: true),
-                  ),
-                  SwitchListTile.adaptive(
-                    value: _dailyGoalReminder,
-                    activeThumbColor: AppTheme.secondaryAccent,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(
-                      'Günlük hedef hatırlatması',
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.textWhite,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Her gün saat 20:00’de adım ve su hedeflerini kontrol etmeni hatırlatır.',
-                      style: GoogleFonts.poppins(
-                        color: AppTheme.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    onChanged: (value) =>
-                        _updateReminderPreference(value: value, water: false),
                   ),
                   const SizedBox(height: 24),
                   FilledButton.icon(
