@@ -6,7 +6,7 @@ Institution: Izmir University of Economics
 Project version: 1.0.0+1
 Flutter version used: 3.41.5 stable
 Dart version used: 3.11.3
-YouTube demonstration URL: [ADD THE FINAL YOUTUBE URL BEFORE SUBMISSION]
+YouTube demonstration URL: https://youtu.be/8XAVZEF9t2w
 
 
 1. WHAT THIS PROJECT IS
